@@ -1,0 +1,32 @@
+package com.example.VelocityBoard.controller;
+
+import com.example.VelocityBoard.model.Task;
+import com.example.VelocityBoard.service.TaskService;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+@RestController
+@RequestMapping("/tasks")
+public class TaskController {
+
+    private final TaskService taskService;
+
+    public TaskController(TaskService taskService) {
+        this.taskService = taskService;
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public Mono<Task> saveTask(@RequestBody Task task) {
+        return taskService.saveAndEmitTask(task);
+    }
+
+    @GetMapping(value = "/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<Task> getEvents() {
+        // Devuelve un Flux<Task> manejado de forma reactiva (Non-Blocking)
+        return taskService.getTaskEvents();
+    }
+}
