@@ -16,10 +16,10 @@ import java.util.Map;
 public class JwtUtil {
 
     // Using a securely generated key or provided one. Must be at least 256 bits for HMAC-SHA-256.
-    @Value("${jwt.secret:ThisIsASecretKeyForVelocityBoardAppThisIsASecretKeyForVelocityBoardApp}")
+    @Value("${JWT_SECRET:${jwt.secret:ThisIsASecretKeyForVelocityBoardAppThisIsASecretKeyForVelocityBoardApp}}")
     private String secret;
 
-    @Value("${jwt.expiration:86400000}") // 1 day in ms
+    @Value("${JWT_EXPIRATION:${jwt.expiration:86400000}}") // 1 day in ms
     private String expirationTime;
 
     private SecretKey getSigningKey() {
