@@ -2,11 +2,8 @@ spring:
   docker:
     compose:
       enabled: false
-  data:
-    mongodb:
-      uri: "mongodb://CesarMora:Cesar2005.mora@ac-7poikvv-shard-00-00.no4uhzn.mongodb.net:27017,ac-7poikvv-shard-00-01.no4uhzn.mongodb.net:27017,ac-7poikvv-shard-00-02.no4uhzn.mongodb.net:27017/velocityboard?ssl=true&replicaSet=atlas-k2vjh0-shard-0&authSource=admin&retryWrites=true&w=majority"
   mongodb:
-    uri: "mongodb://CesarMora:Cesar2005.mora@ac-7poikvv-shard-00-00.no4uhzn.mongodb.net:27017,ac-7poikvv-shard-00-01.no4uhzn.mongodb.net:27017,ac-7poikvv-shard-00-02.no4uhzn.mongodb.net:27017/velocityboard?ssl=true&replicaSet=atlas-k2vjh0-shard-0&authSource=admin&retryWrites=true&w=majority"
+    uri: "${MONGODB_URI:mongodb://CesarMora:Cesar2005.mora@ac-7poikvv-shard-00-00.no4uhzn.mongodb.net:27017,ac-7poikvv-shard-00-01.no4uhzn.mongodb.net:27017,ac-7poikvv-shard-00-02.no4uhzn.mongodb.net:27017/velocityboard?ssl=true&replicaSet=atlas-k2vjh0-shard-0&authSource=admin&retryWrites=true&w=majority}"
 
 server:
-  port: 8081
+  port: ${PORT:8081}
