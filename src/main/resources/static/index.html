@@ -313,6 +313,49 @@
         .pill.in-progress { color: #f59e0b; background: rgba(245, 158, 11, 0.15); }
         .pill.done { color: var(--success); background: rgba(16, 185, 129, 0.15); }
 
+        /* NAV */
+        .btn-nav {
+            width: auto; padding: 8px 16px; font-size: 0.85rem;
+            background: transparent; border: 1px solid var(--border); color: #94a3b8;
+        }
+        .btn-nav:hover { background: rgba(255,255,255,0.08); transform: none; box-shadow: none; color: white; }
+        .btn-nav.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        /* USERS SECTION */
+        .users-container { display: none; flex-direction: column; flex: 1; padding: 30px; overflow-y: auto; }
+        .users-container.visible { display: flex; }
+        .users-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .users-header h2 { margin: 0; font-weight: 800; font-size: 1.5rem; }
+        .users-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+        .user-card {
+            background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px;
+            padding: 20px; display: flex; flex-direction: column; gap: 12px;
+            animation: fadeIn 0.3s ease-out; transition: border-color 0.2s;
+        }
+        .user-card:hover { border-color: rgba(255,255,255,0.3); }
+        .user-card-header { display: flex; align-items: center; gap: 14px; }
+        .user-avatar {
+            width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 1.2rem; color: white;
+        }
+        .user-card-name { font-weight: 700; font-size: 0.95rem; }
+        .user-card-email { font-size: 0.8rem; color: #94a3b8; margin-top: 2px; }
+        .role-badge {
+            display: inline-block; padding: 4px 10px; border-radius: 20px;
+            font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+        }
+        .role-badge.admin { background: rgba(139,92,246,0.2); color: #a78bfa; border: 1px solid rgba(139,92,246,0.3); }
+        .role-badge.user  { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.25); }
+        .user-id { font-size: 0.72rem; color: #475569; font-family: monospace; }
+        .users-loading { text-align: center; color: #64748b; padding: 50px; font-size: 1rem; }
+        .reload-btn {
+            width: auto; padding: 9px 18px; font-size: 0.85rem;
+            background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: #94a3b8;
+        }
+        .reload-btn:hover { background: rgba(255,255,255,0.1); transform: none; box-shadow: none; color: white; }
+
     </style>
 </head>
 <body>
@@ -349,6 +392,14 @@
     <div id="boardSection">
         <header>
             <h1><i class="fas fa-bolt"></i> VelocityBoard</h1>
+            <nav style="display:flex; gap: 8px;">
+                <button class="btn-nav active" id="navBoard" onclick="switchView('board')">
+                    <i class="fas fa-columns"></i> Tablero
+                </button>
+                <button class="btn-nav" id="navUsers" onclick="switchView('users')" style="display:none">
+                    <i class="fas fa-users"></i> Usuarios
+                </button>
+            </nav>
             <div>
                 <span id="userGreeting" style="margin-right: 15px; color: #94a3b8;">Hola!</span>
                 <button class="btn-small" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Salir</button>
@@ -391,6 +442,15 @@
                     <i class="fas fa-plus"></i> Añadir Tarjeta
                 </div>
             </div>
+        </div>
+
+        <!-- USERS VIEW — Adaptador de entrada UI (Arquitectura Hexagonal) -->
+        <div class="users-container" id="usersContainer">
+            <div class="users-header">
+                <h2><i class="fas fa-users" style="color: var(--accent); margin-right: 10px;"></i> Gestión de Usuarios</h2>
+                <button class="reload-btn" onclick="loadUsers()"><i class="fas fa-sync-alt"></i> Recargar</button>
+            </div>
+            <div id="usersGrid" class="users-grid"></div>
         </div>
     </div>
 
@@ -476,7 +536,14 @@
     function showBoard() {
         document.getElementById('authSection').style.display = 'none';
         document.getElementById('boardSection').style.display = 'flex';
-        
+
+        // Extraer claims del JWT para personalizar UI según rol (Hexagonal: adaptador de entrada)
+        const claims = parseJwt(jwtToken);
+        document.getElementById('userGreeting').innerText = `Hola, ${claims.sub || 'Usuario'}!`;
+        if (claims.role === 'ROLE_ADMIN') {
+            document.getElementById('navUsers').style.display = 'inline-block';
+        }
+
         // Setup Real-time reactivity via custom fetch stream
         listenToStream();
     }
@@ -487,6 +554,12 @@
         if(abortController) abortController.abort();
         document.getElementById('authSection').style.display = 'flex';
         document.getElementById('boardSection').style.display = 'none';
+        // Reset nav y vistas
+        document.getElementById('navUsers').style.display = 'none';
+        document.getElementById('navBoard').classList.add('active');
+        document.getElementById('navUsers').classList.remove('active');
+        document.querySelector('.board-container').style.display = 'flex';
+        document.getElementById('usersContainer').classList.remove('visible');
         // Clear tasks
         document.getElementById('list-TODO').innerHTML = '';
         document.getElementById('list-IN_PROGRESS').innerHTML = '';
@@ -605,6 +678,85 @@
             const counterEl = document.getElementById(`cnt-${status}`);
             if(counterEl) counterEl.innerText = count;
         });
+    }
+
+    // ======== HEXAGONAL: Puerto de salida — Adaptador HTTP usuarios ========
+    const usersApiAdapter = {
+        async getAll() {
+            const res = await fetch('/users', {
+                headers: { 'Authorization': `Bearer ${jwtToken}` }
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.message || `Error ${res.status}`);
+            }
+            return res.json();
+        }
+    };
+
+    // ======== HEXAGONAL: Adaptador de entrada UI — Controlador de usuarios ========
+    async function loadUsers() {
+        const grid = document.getElementById('usersGrid');
+        grid.innerHTML = '<div class="users-loading"><i class="fas fa-spinner fa-spin"></i> Cargando usuarios...</div>';
+        try {
+            const users = await usersApiAdapter.getAll();
+            grid.innerHTML = '';
+            if (!users.length) {
+                grid.innerHTML = '<div class="users-loading">No hay usuarios registrados.</div>';
+                return;
+            }
+            users.forEach(user => grid.appendChild(renderUserCard(user)));
+        } catch (err) {
+            grid.innerHTML = `<div class="users-loading" style="color: var(--danger);"><i class="fas fa-exclamation-triangle"></i> ${err.message}</div>`;
+        }
+    }
+
+    function renderUserCard(user) {
+        const card = document.createElement('div');
+        card.className = 'user-card';
+        const initial = (user.username || '?')[0].toUpperCase();
+        const isAdmin = user.role === 'ROLE_ADMIN';
+        card.innerHTML = `
+            <div class="user-card-header">
+                <div class="user-avatar">${initial}</div>
+                <div>
+                    <div class="user-card-name">${user.username}</div>
+                    <div class="user-card-email">${user.email || '—'}</div>
+                </div>
+            </div>
+            <div>
+                <span class="role-badge ${isAdmin ? 'admin' : 'user'}">
+                    <i class="fas ${isAdmin ? 'fa-shield-alt' : 'fa-user'}"></i>
+                    ${isAdmin ? 'Admin' : 'Usuario'}
+                </span>
+            </div>
+            <div class="user-id">ID: ${user.id}</div>
+        `;
+        return card;
+    }
+
+    function parseJwt(token) {
+        try {
+            const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+            return JSON.parse(atob(base64));
+        } catch (_) {
+            return {};
+        }
+    }
+
+    function switchView(view) {
+        const boardContainer = document.querySelector('.board-container');
+        const usersContainer = document.getElementById('usersContainer');
+        document.getElementById('navBoard').classList.toggle('active', view === 'board');
+        document.getElementById('navUsers').classList.toggle('active', view === 'users');
+        if (view === 'board') {
+            boardContainer.style.display = 'flex';
+            usersContainer.classList.remove('visible');
+        } else {
+            boardContainer.style.display = 'none';
+            usersContainer.classList.add('visible');
+            loadUsers();
+        }
     }
 
 </script>
