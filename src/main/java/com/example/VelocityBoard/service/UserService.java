@@ -1,21 +1,30 @@
 package com.example.VelocityBoard.service;
 
+import com.example.VelocityBoard.dto.UserResponse;
 import com.example.VelocityBoard.model.User;
+import com.example.VelocityBoard.port.in.ListUsersUseCase;
 import com.example.VelocityBoard.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @Service
 @RequiredArgsConstructor
-public class UserService {
+public class UserService implements ListUsersUseCase {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
     public Mono<User> findByUsername(String username) {
         return userRepository.findByUsername(username);
+    }
+
+    @Override
+    public Flux<UserResponse> listAllUsers() {
+        return userRepository.findAll()
+                .map(UserResponse::fromUser);
     }
 
     public Mono<User> registerUser(User user) {

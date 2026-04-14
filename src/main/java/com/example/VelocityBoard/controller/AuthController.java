@@ -35,11 +35,14 @@ public class AuthController {
 
     @PostMapping("/register")
     public Mono<ResponseEntity<?>> register(@RequestBody RegisterRequest request) {
-        User user = User.builder()
+        User.UserBuilder builder = User.builder()
                 .username(request.getUsername())
                 .email(request.getEmail())
-                .password(request.getPassword())
-                .build();
+                .password(request.getPassword());
+        if (request.getRole() != null) {
+            builder.role(request.getRole());
+        }
+        User user = builder.build();
 
         return userService.registerUser(user)
                 .<ResponseEntity<?>>map(savedUser -> ResponseEntity.status(HttpStatus.CREATED).body(new AuthResponse(jwtUtil.generateToken(savedUser))))
