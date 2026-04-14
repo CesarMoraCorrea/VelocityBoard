@@ -356,6 +356,26 @@
         }
         .reload-btn:hover { background: rgba(255,255,255,0.1); transform: none; box-shadow: none; color: white; }
 
+        /* EDIT USER MODAL */
+        .edit-btn {
+            width: auto; padding: 7px 14px; font-size: 0.8rem; margin-top: 4px;
+            background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3);
+            color: #60a5fa; border-radius: 8px;
+        }
+        .edit-btn:hover { background: rgba(59,130,246,0.3); transform: none; box-shadow: none; color: white; }
+        .modal-select {
+            width: 100%; padding: 12px 15px; background: rgba(0,0,0,0.2);
+            border: 1px solid var(--border); border-radius: 10px; color: white;
+            font-family: inherit; font-size: 0.95rem; outline: none;
+            transition: border-color 0.3s; appearance: none;
+        }
+        .modal-select:focus { border-color: var(--primary); }
+        .modal-select option { background: #1e293b; color: white; }
+        .edit-hint { font-size: 0.78rem; color: #64748b; margin-top: -12px; margin-bottom: 8px; }
+        .save-btn {
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+        }
+
     </style>
 </head>
 <body>
@@ -470,6 +490,45 @@
                     <input type="text" id="taskDesc" placeholder="Descripción breve" autocomplete="off">
                 </div>
                 <button type="submit">Agregar al Tablero</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- EDIT USER MODAL — Adaptador de entrada UI (Arquitectura Hexagonal) -->
+    <div class="modal-overlay" id="editUserModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-user-edit" style="color:var(--primary);margin-right:8px"></i> Editar Usuario</h3>
+                <button class="close-btn" onclick="closeEditModal()">&times;</button>
+            </div>
+            <form id="editUserForm" onsubmit="submitEditUser(event)">
+                <input type="hidden" id="editUserId">
+                <div class="input-group">
+                    <i class="fas fa-user"></i>
+                    <input type="text" id="editUsername" placeholder="Nuevo username" autocomplete="off">
+                </div>
+                <p class="edit-hint">Dejar vacío para no modificar</p>
+                <div class="input-group">
+                    <i class="fas fa-envelope"></i>
+                    <input type="email" id="editEmail" placeholder="Nuevo email" autocomplete="off">
+                </div>
+                <p class="edit-hint">Dejar vacío para no modificar</p>
+                <div class="input-group">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="editPassword" placeholder="Nueva contraseña" autocomplete="off">
+                </div>
+                <p class="edit-hint">Dejar vacío para no modificar</p>
+                <div class="input-group">
+                    <select id="editRole" class="modal-select">
+                        <option value="">— Mantener rol actual —</option>
+                        <option value="ROLE_USER">Usuario</option>
+                        <option value="ROLE_ADMIN">Administrador</option>
+                    </select>
+                </div>
+                <div id="editUserError" style="color:var(--danger);font-size:0.85rem;margin-bottom:10px;"></div>
+                <button type="submit" class="save-btn" id="editSubmitBtn">
+                    <i class="fas fa-save"></i> Guardar Cambios
+                </button>
             </form>
         </div>
     </div>
@@ -691,6 +750,21 @@
                 throw new Error(err.message || `Error ${res.status}`);
             }
             return res.json();
+        },
+        async update(id, data) {
+            const res = await fetch(`/users/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${jwtToken}`
+                },
+                body: JSON.stringify(data)
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.message || `Error al actualizar: ${res.status}`);
+            }
+            return res.json();
         }
     };
 
@@ -724,15 +798,74 @@
                     <div class="user-card-email">${user.email || '—'}</div>
                 </div>
             </div>
-            <div>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
                 <span class="role-badge ${isAdmin ? 'admin' : 'user'}">
                     <i class="fas ${isAdmin ? 'fa-shield-alt' : 'fa-user'}"></i>
                     ${isAdmin ? 'Admin' : 'Usuario'}
                 </span>
+                <button class="edit-btn" onclick="openEditModal('${user.id}','${user.username}','${user.email || ''}','${user.role}')">
+                    <i class="fas fa-pen"></i> Editar
+                </button>
             </div>
             <div class="user-id">ID: ${user.id}</div>
         `;
         return card;
+    }
+
+    // ======== HEXAGONAL: Adaptador entrada UI — Controlador modal edición ========
+    function openEditModal(id, username, email, role) {
+        document.getElementById('editUserId').value = id;
+        document.getElementById('editUsername').value = '';
+        document.getElementById('editEmail').value = '';
+        document.getElementById('editPassword').value = '';
+        document.getElementById('editRole').value = '';
+        document.getElementById('editUserError').innerText = '';
+        document.getElementById('editSubmitBtn').innerText = 'Guardar Cambios';
+        // Mostrar info actual como placeholder
+        document.getElementById('editUsername').placeholder = `Actual: ${username}`;
+        document.getElementById('editEmail').placeholder = `Actual: ${email || 'sin email'}`;
+        document.getElementById('editUserModal').style.display = 'flex';
+        document.getElementById('editUsername').focus();
+    }
+
+    function closeEditModal() {
+        document.getElementById('editUserModal').style.display = 'none';
+        document.getElementById('editUserForm').reset();
+    }
+
+    async function submitEditUser(e) {
+        e.preventDefault();
+        const id       = document.getElementById('editUserId').value;
+        const username = document.getElementById('editUsername').value.trim();
+        const email    = document.getElementById('editEmail').value.trim();
+        const password = document.getElementById('editPassword').value;
+        const role     = document.getElementById('editRole').value;
+
+        const payload = {};
+        if (username) payload.username = username;
+        if (email)    payload.email    = email;
+        if (password) payload.password = password;
+        if (role)     payload.role     = role;
+
+        if (!Object.keys(payload).length) {
+            document.getElementById('editUserError').innerText = 'Debes modificar al menos un campo.';
+            return;
+        }
+
+        const btn = document.getElementById('editSubmitBtn');
+        btn.innerText = 'Guardando...';
+        btn.disabled = true;
+
+        try {
+            await usersApiAdapter.update(id, payload);
+            closeEditModal();
+            loadUsers(); // Refresca la grilla
+        } catch (err) {
+            document.getElementById('editUserError').innerText = err.message;
+        } finally {
+            btn.innerText = 'Guardar Cambios';
+            btn.disabled = false;
+        }
     }
 
     function parseJwt(token) {
