@@ -255,6 +255,14 @@
             color: #64748b;
         }
 
+        .edit-task-btn {
+            width: auto;
+            padding: 6px 12px;
+            font-size: 0.75rem;
+            margin-left: auto;
+            border-radius: 6px;
+        }
+
         .add-task-btn {
             background: rgba(255, 255, 255, 0.05);
             border: 1px dashed var(--border);
@@ -474,6 +482,7 @@
         </div>
     </div>
 
+
     <!-- ADD TASK MODAL -->
     <div class="modal-overlay" id="taskModal">
         <div class="modal">
@@ -490,6 +499,26 @@
                     <input type="text" id="taskDesc" placeholder="Descripción breve" autocomplete="off">
                 </div>
                 <button type="submit">Agregar al Tablero</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- EDIT TASK MODAL -->
+    <div class="modal-overlay" id="editTaskModal" style="display:none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Editar Tarjeta</h3>
+                <button class="close-btn" onclick="closeEditTaskModal()">&times;</button>
+            </div>
+            <form id="editTaskForm" onsubmit="submitEditTask(event)">
+                <input type="hidden" id="editTaskId">
+                <div class="input-group">
+                    <input type="text" id="editTaskTitle" placeholder="Nuevo título" required autocomplete="off">
+                </div>
+                <div class="input-group">
+                    <input type="text" id="editTaskDesc" placeholder="Nueva descripción" autocomplete="off">
+                </div>
+                <button type="submit">Guardar Cambios</button>
             </form>
         </div>
     </div>
@@ -708,7 +737,17 @@
     }
 
     function renderTask(task) {
-        if (!task.id || localTasks.includes(task.id)) return;
+        if (!task.id) return;
+        
+        const existingCard = document.getElementById(`task-${task.id}`);
+        if (existingCard) {
+            existingCard.querySelector('.task-title').innerText = task.title || 'Nueva Tarea';
+            existingCard.querySelector('.task-desc').innerText = task.description || '';
+            existingCard.querySelector('.edit-task-btn').setAttribute('onclick', `openEditTaskModal('${task.id}', '${encodeURIComponent(task.title || '')}', '${encodeURIComponent(task.description || '')}')`);
+            return;
+        }
+
+        if (localTasks.includes(task.id)) return;
         localTasks.push(task.id);
 
         const listId = `list-${task.status}`;
@@ -717,17 +756,53 @@
 
         const card = document.createElement('div');
         card.className = 'task-card';
+        card.id = `task-${task.id}`;
         card.innerHTML = `
             <div class="task-title">${task.title || 'Nueva Tarea'}</div>
             <div class="task-desc">${task.description || ''}</div>
             <div class="task-footer">
                 <span>#${task.id.slice(-4)}</span>
                 <i class="fas fa-align-left"></i>
+                <button class="edit-task-btn" onclick="openEditTaskModal('${task.id}', '${encodeURIComponent(task.title || '')}', '${encodeURIComponent(task.description || '')}')">Editar</button>
             </div>
         `;
-        
         container.appendChild(card);
         updateCounts();
+    }
+
+    function openEditTaskModal(id, title, desc) {
+        document.getElementById('editTaskId').value = id;
+        document.getElementById('editTaskTitle').value = decodeURIComponent(title);
+        document.getElementById('editTaskDesc').value = decodeURIComponent(desc);
+        document.getElementById('editTaskModal').style.display = 'flex';
+    }
+
+    function closeEditTaskModal() {
+        document.getElementById('editTaskModal').style.display = 'none';
+        document.getElementById('editTaskForm').reset();
+    }
+
+    async function submitEditTask(e) {
+        e.preventDefault();
+        const id = document.getElementById('editTaskId').value;
+        const title = document.getElementById('editTaskTitle').value;
+        const description = document.getElementById('editTaskDesc').value;
+        try {
+            const response = await fetch(`/tasks/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${jwtToken}`
+                },
+                body: JSON.stringify({ title, description })
+            });
+            if (!response.ok) throw new Error('Error al editar la tarea');
+            const updatedTask = await response.json();
+            renderTask(updatedTask); // Instantly update UI using the response
+            closeEditTaskModal();
+        } catch (err) {
+            alert('No se pudo editar la tarea');
+        }
     }
 
     function updateCounts() {

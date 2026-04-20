@@ -29,4 +29,9 @@ public class TaskController {
         // Devuelve un Flux<Task> manejado de forma reactiva (Non-Blocking)
         return taskService.getTaskEvents();
     }
+
+    @PutMapping("/{id}")
+    public Mono<Task> updateTask(@PathVariable String id, @RequestBody Task task) {
+        return taskService.updateTask(id, task.getTitle(), task.getDescription());
+    }
 }

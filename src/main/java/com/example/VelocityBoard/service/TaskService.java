@@ -28,6 +28,16 @@ public class TaskService {
     }
 
     public Flux<Task> getTaskEvents() {
-        return sink.asFlux();
+        return taskRepository.findAll().concatWith(sink.asFlux());
+    }
+
+    public Mono<Task> updateTask(String id, String title, String description) {
+        return taskRepository.findById(id)
+                .flatMap(existingTask -> {
+                    existingTask.setTitle(title);
+                    existingTask.setDescription(description);
+                    return taskRepository.save(existingTask)
+                        .doOnSuccess(updatedTask -> sink.tryEmitNext(updatedTask));
+                });
     }
 }
