@@ -21,6 +21,9 @@ public class TaskController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public Mono<Task> saveTask(@RequestBody Task task) {
+        if (task.getCreatedAt() == null) {
+            task.setCreatedAt(java.time.LocalDateTime.now());
+        }
         return taskService.saveAndEmitTask(task);
     }
 
