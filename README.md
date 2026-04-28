@@ -16,7 +16,7 @@
 
 ---
 
-## 📋 Descripción del Proyecto
+## 📋 Descripción del Proyecto (https://docs.google.com/document/d/132YF4Iar6EbkVQKRcn_SnQoVsokT-CKddZ4d5gHneaI/edit?usp=sharing)
 
 **VelocityBoard** es una aplicación de gestión de tareas estilo Kanban (inspirada en Trello) construida sobre una arquitectura **100% reactiva y no bloqueante** con Java. Permite a los equipos organizar su trabajo en tableros visuales con columnas de estado, actualizándose en **tiempo real** gracias a Server-Sent Events (SSE).
 
