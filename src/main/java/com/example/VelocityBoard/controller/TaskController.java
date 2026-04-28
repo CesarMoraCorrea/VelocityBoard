@@ -22,7 +22,7 @@ public class TaskController {
     @ResponseStatus(HttpStatus.CREATED)
     public Mono<Task> saveTask(@RequestBody Task task) {
         if (task.getCreatedAt() == null) {
-            task.setCreatedAt(java.time.LocalDateTime.now());
+            task.setCreatedAt(new java.util.Date());
         }
         return taskService.saveAndEmitTask(task);
     }
