@@ -28,6 +28,56 @@ public class TaskService {
     }
 
     public Flux<Task> getTaskEvents() {
-        return sink.asFlux();
+        return taskRepository.findAll().concatWith(sink.asFlux());
+    }
+
+    public Mono<Task> updateTask(String id, String title, String description) {
+        return taskRepository.findById(id)
+                .flatMap(existingTask -> {
+                    existingTask.setTitle(title);
+                    existingTask.setDescription(description);
+                    return taskRepository.save(existingTask)
+                        .doOnSuccess(updatedTask -> sink.tryEmitNext(updatedTask));
+                });
+    }
+
+    public Mono<Task> softDeleteTask(String id) {
+        return taskRepository.findById(id)
+                .flatMap(existingTask -> {
+                    existingTask.setDeleted(true);
+                    return taskRepository.save(existingTask)
+                        .doOnSuccess(deletedTask -> sink.tryEmitNext(deletedTask));
+                });
+    }
+
+    public Mono<Task> restoreTask(String id) {
+        return taskRepository.findById(id)
+                .flatMap(existingTask -> {
+                    existingTask.setDeleted(false);
+                    return taskRepository.save(existingTask)
+                        .doOnSuccess(restoredTask -> sink.tryEmitNext(restoredTask));
+                });
+    }
+
+    public Mono<Task> archiveTask(String id) {
+        return taskRepository.findById(id)
+                .flatMap(existingTask -> {
+                    existingTask.setArchived(true);
+                    return taskRepository.save(existingTask)
+                        .doOnSuccess(archivedTask -> sink.tryEmitNext(archivedTask));
+                });
+    }
+
+    public Mono<Task> unarchiveTask(String id) {
+        return taskRepository.findById(id)
+                .flatMap(existingTask -> {
+                    existingTask.setArchived(false);
+                    return taskRepository.save(existingTask)
+                        .doOnSuccess(unarchivedTask -> sink.tryEmitNext(unarchivedTask));
+                });
+    }
+
+    public Mono<Void> hardDeleteTask(String id) {
+        return taskRepository.deleteById(id);
     }
 }

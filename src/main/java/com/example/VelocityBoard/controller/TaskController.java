@@ -21,6 +21,9 @@ public class TaskController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public Mono<Task> saveTask(@RequestBody Task task) {
+        if (task.getCreatedAt() == null) {
+            task.setCreatedAt(new java.util.Date());
+        }
         return taskService.saveAndEmitTask(task);
     }
 
@@ -28,5 +31,36 @@ public class TaskController {
     public Flux<Task> getEvents() {
         // Devuelve un Flux<Task> manejado de forma reactiva (Non-Blocking)
         return taskService.getTaskEvents();
+    }
+
+    @PutMapping("/{id}")
+    public Mono<Task> updateTask(@PathVariable String id, @RequestBody Task task) {
+        return taskService.updateTask(id, task.getTitle(), task.getDescription());
+    }
+
+    @DeleteMapping("/{id}")
+    public Mono<Task> softDeleteTask(@PathVariable String id) {
+        return taskService.softDeleteTask(id);
+    }
+
+    @PutMapping("/{id}/restore")
+    public Mono<Task> restoreTask(@PathVariable String id) {
+        return taskService.restoreTask(id);
+    }
+
+    @PutMapping("/{id}/archive")
+    public Mono<Task> archiveTask(@PathVariable String id) {
+        return taskService.archiveTask(id);
+    }
+
+    @PutMapping("/{id}/unarchive")
+    public Mono<Task> unarchiveTask(@PathVariable String id) {
+        return taskService.unarchiveTask(id);
+    }
+
+    @DeleteMapping("/{id}/hard")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public Mono<Void> hardDeleteTask(@PathVariable String id) {
+        return taskService.hardDeleteTask(id);
     }
 }
