@@ -427,6 +427,12 @@
                 <button class="btn-nav" id="navUsers" onclick="switchView('users')" style="display:none">
                     <i class="fas fa-users"></i> Usuarios
                 </button>
+                <button class="btn-nav" id="navArchive" onclick="switchView('archive')">
+                    <i class="fas fa-archive"></i> Archivados
+                </button>
+                <button class="btn-nav" id="navTrash" onclick="switchView('trash')">
+                    <i class="fas fa-trash-alt"></i> Papelera
+                </button>
             </nav>
             <div>
                 <span id="userGreeting" style="margin-right: 15px; color: #94a3b8;">Hola!</span>
@@ -434,7 +440,7 @@
             </div>
         </header>
 
-        <div class="board-container">
+        <div class="board-container" id="mainBoardContainer">
             <!-- TO DO COLUMN -->
             <div class="column" id="col-TODO">
                 <div class="column-header">
@@ -468,6 +474,38 @@
                 <div class="task-list" id="list-DONE"></div>
                 <div class="add-task-btn" onclick="openModal('DONE')">
                     <i class="fas fa-plus"></i> Añadir Tarjeta
+                </div>
+            </div>
+        </div>
+
+        <!-- ARCHIVE VIEW -->
+        <div class="users-container" id="archiveContainer" style="display: none; padding: 20px 30px;">
+            <div class="users-header" style="margin-bottom: 0;">
+                <h2><i class="fas fa-archive" style="color: #94a3b8; margin-right: 10px;"></i> Tareas Archivadas</h2>
+            </div>
+            <div class="board-container" style="padding: 20px 0; overflow: visible;">
+                <div class="column" id="col-ARCHIVE" style="width: 100%; min-width: 100%;">
+                    <div class="column-header">
+                        <span>Tareas Archivadas</span>
+                        <span class="pill" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8;" id="cnt-ARCHIVE">0</span>
+                    </div>
+                    <div class="task-list" id="list-ARCHIVE"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TRASH VIEW -->
+        <div class="users-container" id="trashContainer" style="display: none; padding: 20px 30px;">
+            <div class="users-header" style="margin-bottom: 0;">
+                <h2><i class="fas fa-trash-alt" style="color: var(--danger); margin-right: 10px;"></i> Papelera de Reciclaje</h2>
+            </div>
+            <div class="board-container" style="padding: 20px 0; overflow: visible;">
+                <div class="column" id="col-TRASH" style="width: 100%; min-width: 100%;">
+                    <div class="column-header">
+                        <span>Tareas Eliminadas</span>
+                        <span class="pill" style="background: rgba(239, 68, 68, 0.15); color: var(--danger);" id="cnt-TRASH">0</span>
+                    </div>
+                    <div class="task-list" id="list-TRASH"></div>
                 </div>
             </div>
         </div>
@@ -646,12 +684,18 @@
         document.getElementById('navUsers').style.display = 'none';
         document.getElementById('navBoard').classList.add('active');
         document.getElementById('navUsers').classList.remove('active');
-        document.querySelector('.board-container').style.display = 'flex';
+        document.getElementById('navArchive').classList.remove('active');
+        document.getElementById('navTrash').classList.remove('active');
+        document.getElementById('mainBoardContainer').style.display = 'flex';
         document.getElementById('usersContainer').classList.remove('visible');
+        document.getElementById('archiveContainer').style.display = 'none';
+        document.getElementById('trashContainer').style.display = 'none';
         // Clear tasks
         document.getElementById('list-TODO').innerHTML = '';
         document.getElementById('list-IN_PROGRESS').innerHTML = '';
         document.getElementById('list-DONE').innerHTML = '';
+        document.getElementById('list-ARCHIVE').innerHTML = '';
+        document.getElementById('list-TRASH').innerHTML = '';
         localTasks = [];
     }
 
@@ -742,6 +786,12 @@
 
     function renderTask(task) {
         if (!task.id) return;
+
+        if (task.deleted) {
+            task.status = 'TRASH';
+        } else if (task.archived) {
+            task.status = 'ARCHIVE';
+        }
         
         let dateHtml = '';
         let dateStr = '';
@@ -776,7 +826,35 @@
                 dateEl.remove();
             }
 
-            existingCard.querySelector('.edit-task-btn').setAttribute('onclick', `openEditTaskModal('${task.id}', '${encodeURIComponent(task.title || '')}', '${encodeURIComponent(task.description || '')}')`);
+            let buttonsHtml = '';
+            if (task.deleted) {
+                buttonsHtml = `
+                    <button class="edit-task-btn" style="color:var(--success);border-color:var(--success);" onclick="restoreTask('${task.id}')">Restaurar</button>
+                    <button class="edit-task-btn" style="color:var(--danger);border-color:var(--danger);margin-left:5px;" onclick="hardDeleteTask('${task.id}')"><i class="fas fa-trash"></i></button>
+                `;
+            } else if (task.archived) {
+                buttonsHtml = `
+                    <button class="edit-task-btn" style="color:var(--success);border-color:var(--success);margin-right:5px;" onclick="unarchiveTask('${task.id}')">Desarchivar</button>
+                    <button class="edit-task-btn" style="color:var(--danger);border-color:var(--danger);" onclick="softDeleteTask('${task.id}')"><i class="fas fa-trash"></i></button>
+                `;
+            } else {
+                buttonsHtml = `
+                    <button class="edit-task-btn" style="color:#94a3b8;border-color:#94a3b8;margin-right:5px;" onclick="archiveTask('${task.id}')" title="Archivar"><i class="fas fa-archive"></i></button>
+                    <button class="edit-task-btn" style="color:var(--danger);border-color:var(--danger);margin-right:5px;" onclick="softDeleteTask('${task.id}')" title="Eliminar"><i class="fas fa-trash"></i></button>
+                    <button class="edit-task-btn" onclick="openEditTaskModal('${task.id}', '${encodeURIComponent(task.title || '')}', '${encodeURIComponent(task.description || '')}')">Editar</button>
+                `;
+            }
+            existingCard.querySelector('.task-footer').innerHTML = `
+                <span>#${task.id.slice(-4)}</span>
+                <i class="fas fa-align-left"></i>
+                <div style="display:flex;">${buttonsHtml}</div>
+            `;
+
+            const targetList = document.getElementById(`list-${task.status}`);
+            if (targetList && existingCard.parentElement !== targetList) {
+                targetList.appendChild(existingCard);
+            }
+            updateCounts();
             return;
         }
 
@@ -791,6 +869,25 @@
         card.className = 'task-card';
         card.id = `task-${task.id}`;
 
+        let buttonsHtml = '';
+        if (task.deleted) {
+            buttonsHtml = `
+                <button class="edit-task-btn" style="color:var(--success);border-color:var(--success);" onclick="restoreTask('${task.id}')">Restaurar</button>
+                <button class="edit-task-btn" style="color:var(--danger);border-color:var(--danger);margin-left:5px;" onclick="hardDeleteTask('${task.id}')"><i class="fas fa-trash"></i></button>
+            `;
+        } else if (task.archived) {
+            buttonsHtml = `
+                <button class="edit-task-btn" style="color:var(--success);border-color:var(--success);margin-right:5px;" onclick="unarchiveTask('${task.id}')">Desarchivar</button>
+                <button class="edit-task-btn" style="color:var(--danger);border-color:var(--danger);" onclick="softDeleteTask('${task.id}')"><i class="fas fa-trash"></i></button>
+            `;
+        } else {
+            buttonsHtml = `
+                <button class="edit-task-btn" style="color:#94a3b8;border-color:#94a3b8;margin-right:5px;" onclick="archiveTask('${task.id}')" title="Archivar"><i class="fas fa-archive"></i></button>
+                <button class="edit-task-btn" style="color:var(--danger);border-color:var(--danger);margin-right:5px;" onclick="softDeleteTask('${task.id}')" title="Eliminar"><i class="fas fa-trash"></i></button>
+                <button class="edit-task-btn" onclick="openEditTaskModal('${task.id}', '${encodeURIComponent(task.title || '')}', '${encodeURIComponent(task.description || '')}')">Editar</button>
+            `;
+        }
+
         card.innerHTML = `
             <div class="task-title">${task.title || 'Nueva Tarea'}</div>
             <div class="task-desc">${task.description || ''}</div>
@@ -798,7 +895,7 @@
             <div class="task-footer">
                 <span>#${task.id.slice(-4)}</span>
                 <i class="fas fa-align-left"></i>
-                <button class="edit-task-btn" onclick="openEditTaskModal('${task.id}', '${encodeURIComponent(task.title || '')}', '${encodeURIComponent(task.description || '')}')">Editar</button>
+                <div style="display:flex;">${buttonsHtml}</div>
             </div>
         `;
         container.appendChild(card);
@@ -840,8 +937,77 @@
         }
     }
 
+    async function softDeleteTask(id) {
+        try {
+            const response = await fetch(`/tasks/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${jwtToken}` }
+            });
+            if (response.ok) {
+                const deletedTask = await response.json();
+                renderTask(deletedTask);
+            }
+        } catch (err) { console.error('Error soft deleting task'); }
+    }
+
+    async function restoreTask(id) {
+        try {
+            const response = await fetch(`/tasks/${id}/restore`, {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${jwtToken}` }
+            });
+            if (response.ok) {
+                const restoredTask = await response.json();
+                renderTask(restoredTask);
+            }
+        } catch (err) { console.error('Error restoring task'); }
+    }
+
+    async function hardDeleteTask(id) {
+        if (!confirm('¿Estás seguro de que quieres eliminar esta tarea permanentemente?')) return;
+        try {
+            const response = await fetch(`/tasks/${id}/hard`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${jwtToken}` }
+            });
+            if (response.ok) {
+                const existingCard = document.getElementById(`task-${id}`);
+                if (existingCard) {
+                    existingCard.remove();
+                    updateCounts();
+                }
+            }
+        } catch (err) { console.error('Error hard deleting task'); }
+    }
+
+    async function archiveTask(id) {
+        try {
+            const response = await fetch(`/tasks/${id}/archive`, {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${jwtToken}` }
+            });
+            if (response.ok) {
+                const archivedTask = await response.json();
+                renderTask(archivedTask);
+            }
+        } catch (err) { console.error('Error archiving task'); }
+    }
+
+    async function unarchiveTask(id) {
+        try {
+            const response = await fetch(`/tasks/${id}/unarchive`, {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${jwtToken}` }
+            });
+            if (response.ok) {
+                const unarchivedTask = await response.json();
+                renderTask(unarchivedTask);
+            }
+        } catch (err) { console.error('Error unarchiving task'); }
+    }
+
     function updateCounts() {
-        ['TODO', 'IN_PROGRESS', 'DONE'].forEach(status => {
+        ['TODO', 'IN_PROGRESS', 'DONE', 'ARCHIVE', 'TRASH'].forEach(status => {
             const list = document.getElementById(`list-${status}`);
             const count = list ? list.children.length : 0;
             const counterEl = document.getElementById(`cnt-${status}`);
@@ -988,17 +1154,25 @@
     }
 
     function switchView(view) {
-        const boardContainer = document.querySelector('.board-container');
+        const boardContainer = document.getElementById('mainBoardContainer');
         const usersContainer = document.getElementById('usersContainer');
+        const archiveContainer = document.getElementById('archiveContainer');
+        const trashContainer = document.getElementById('trashContainer');
+
         document.getElementById('navBoard').classList.toggle('active', view === 'board');
         document.getElementById('navUsers').classList.toggle('active', view === 'users');
-        if (view === 'board') {
-            boardContainer.style.display = 'flex';
-            usersContainer.classList.remove('visible');
-        } else {
-            boardContainer.style.display = 'none';
+        document.getElementById('navArchive').classList.toggle('active', view === 'archive');
+        document.getElementById('navTrash').classList.toggle('active', view === 'trash');
+
+        boardContainer.style.display = view === 'board' ? 'flex' : 'none';
+        archiveContainer.style.display = view === 'archive' ? 'flex' : 'none';
+        trashContainer.style.display = view === 'trash' ? 'flex' : 'none';
+        
+        if (view === 'users') {
             usersContainer.classList.add('visible');
             loadUsers();
+        } else {
+            usersContainer.classList.remove('visible');
         }
     }
 
