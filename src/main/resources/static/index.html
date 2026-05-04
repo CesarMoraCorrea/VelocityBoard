@@ -433,6 +433,9 @@
                 <button class="btn-nav" id="navTrash" onclick="switchView('trash')">
                     <i class="fas fa-trash-alt"></i> Papelera
                 </button>
+                <button class="btn-nav" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa;" onclick="openColumnModal()">
+                    <i class="fas fa-plus"></i> Añadir Columna
+                </button>
             </nav>
             <div>
                 <span id="userGreeting" style="margin-right: 15px; color: #94a3b8;">Hola!</span>
@@ -441,41 +444,7 @@
         </header>
 
         <div class="board-container" id="mainBoardContainer">
-            <!-- TO DO COLUMN -->
-            <div class="column" id="col-TODO">
-                <div class="column-header">
-                    <span>Por Hacer</span>
-                    <span class="pill todo" id="cnt-TODO">0</span>
-                </div>
-                <div class="task-list" id="list-TODO"></div>
-                <div class="add-task-btn" onclick="openModal('TODO')">
-                    <i class="fas fa-plus"></i> Añadir Tarjeta
-                </div>
-            </div>
-
-            <!-- IN PROGRESS COLUMN -->
-            <div class="column" id="col-IN_PROGRESS">
-                <div class="column-header">
-                    <span>En Progreso</span>
-                    <span class="pill in-progress" id="cnt-IN_PROGRESS">0</span>
-                </div>
-                <div class="task-list" id="list-IN_PROGRESS"></div>
-                <div class="add-task-btn" onclick="openModal('IN_PROGRESS')">
-                    <i class="fas fa-plus"></i> Añadir Tarjeta
-                </div>
-            </div>
-
-            <!-- DONE COLUMN -->
-            <div class="column" id="col-DONE">
-                <div class="column-header">
-                    <span>Completadas</span>
-                    <span class="pill done" id="cnt-DONE">0</span>
-                </div>
-                <div class="task-list" id="list-DONE"></div>
-                <div class="add-task-btn" onclick="openModal('DONE')">
-                    <i class="fas fa-plus"></i> Añadir Tarjeta
-                </div>
-            </div>
+            <!-- Columnas dinámicas serán inyectadas aquí -->
         </div>
 
         <!-- ARCHIVE VIEW -->
@@ -521,6 +490,22 @@
     </div>
 
 
+    <!-- ADD COLUMN MODAL -->
+    <div class="modal-overlay" id="columnModal" style="display:none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Nueva Columna</h3>
+                <button class="close-btn" onclick="closeColumnModal()">&times;</button>
+            </div>
+            <form id="columnForm" onsubmit="createColumn(event)">
+                <div class="input-group">
+                    <input type="text" id="columnName" placeholder="Nombre de la columna" required autocomplete="off">
+                </div>
+                <button type="submit">Crear Columna</button>
+            </form>
+        </div>
+    </div>
+
     <!-- ADD TASK MODAL -->
     <div class="modal-overlay" id="taskModal">
         <div class="modal">
@@ -529,7 +514,7 @@
                 <button class="close-btn" onclick="closeModal()">&times;</button>
             </div>
             <form id="taskForm" onsubmit="createTask(event)">
-                <input type="hidden" id="taskStatus">
+                <input type="hidden" id="taskColumnId">
                 <div class="input-group">
                     <input type="text" id="taskTitle" placeholder="Título de la tarea" required autocomplete="off">
                 </div>
@@ -600,6 +585,23 @@
         </div>
     </div>
 
+    <!-- EDIT COLUMN MODAL -->
+    <div class="modal-overlay" id="editColumnModal" style="display:none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Editar Columna</h3>
+                <button class="close-btn" onclick="closeEditColumnModal()">&times;</button>
+            </div>
+            <form id="editColumnForm" onsubmit="submitEditColumn(event)">
+                <input type="hidden" id="editColumnId">
+                <div class="input-group">
+                    <input type="text" id="editColumnName" required autocomplete="off">
+                </div>
+                <button type="submit">Guardar Cambios</button>
+            </form>
+        </div>
+    </div>
+
 <script>
     let currentMode = 'login';
     let jwtToken = '';
@@ -663,15 +665,168 @@
         document.getElementById('authSection').style.display = 'none';
         document.getElementById('boardSection').style.display = 'flex';
 
-        // Extraer claims del JWT para personalizar UI según rol (Hexagonal: adaptador de entrada)
+        // Extraer claims del JWT para personalizar UI
         const claims = parseJwt(jwtToken);
         document.getElementById('userGreeting').innerText = `Hola, ${claims.sub || 'Usuario'}!`;
         if (claims.role === 'ROLE_ADMIN') {
             document.getElementById('navUsers').style.display = 'inline-block';
         }
 
-        // Setup Real-time reactivity via custom fetch stream
-        listenToStream();
+        loadColumns().then(() => {
+            listenToStream();
+        });
+    }
+
+    async function loadColumns() {
+        const claims = parseJwt(jwtToken);
+        const userId = claims.userId;
+        if (!userId) return;
+
+        try {
+            const res = await fetch(`/columns/user/${userId}`, {
+                headers: { 'Authorization': `Bearer ${jwtToken}` }
+            });
+            if (res.ok) {
+                let columns = await res.json();
+                
+                // Si el usuario no tiene columnas, creamos las 3 por defecto
+                if (columns.length === 0) {
+                    await fetch('/columns', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` }, body: JSON.stringify({ name: 'Por Hacer', userId: userId, position: 0 }) });
+                    await fetch('/columns', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` }, body: JSON.stringify({ name: 'En Progreso', userId: userId, position: 1 }) });
+                    await fetch('/columns', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` }, body: JSON.stringify({ name: 'Completadas', userId: userId, position: 2 }) });
+                    
+                    // Recargar de nuevo
+                    const res2 = await fetch(`/columns/user/${userId}`, { headers: { 'Authorization': `Bearer ${jwtToken}` } });
+                    columns = await res2.json();
+                }
+
+                renderAllColumns(columns);
+            }
+        } catch (e) {
+            console.error("Error cargando columnas", e);
+        }
+    }
+
+    function buildColumnDiv(col) {
+        const colDiv = document.createElement('div');
+        colDiv.className = 'column';
+        colDiv.id = `col-${col.id}`;
+        colDiv.draggable = true;
+        colDiv.addEventListener('dragstart', handleColDragStart);
+        colDiv.addEventListener('dragend', handleColDragEnd);
+        colDiv.innerHTML = `
+            <div class="column-header">
+                <span class="column-title">${col.name}</span>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span class="pill todo" id="cnt-${col.id}">0</span>
+                    <i class="fas fa-edit" style="cursor:pointer; color:#94a3b8; font-size:0.85rem;" onclick="openEditColumnModal('${col.id}', '${col.name}')" title="Editar Columna"></i>
+                    <i class="fas fa-trash-alt" style="cursor:pointer; color:var(--danger); font-size:0.85rem;" onclick="deleteColumn('${col.id}')" title="Eliminar Columna"></i>
+                </div>
+            </div>
+            <div class="task-list" id="list-${col.id}"></div>
+            <div class="add-task-btn" onclick="openModal('${col.id}')">
+                <i class="fas fa-plus"></i> Añadir Tarjeta
+            </div>
+        `;
+        const taskList = colDiv.querySelector('.task-list');
+        taskList.addEventListener('dragover', handleTaskDragOver);
+        taskList.addEventListener('drop', handleTaskDrop);
+        return colDiv;
+    }
+
+    function renderAllColumns(columns) {
+        const container = document.getElementById('mainBoardContainer');
+        container.innerHTML = ''; // Solo se llama al inicio
+        columns.forEach(col => container.appendChild(buildColumnDiv(col)));
+        container.addEventListener('dragover', handleColDragOver);
+        container.addEventListener('drop', handleColDrop);
+    }
+
+    function openEditColumnModal(id, currentName) {
+        document.getElementById('editColumnId').value = id;
+        document.getElementById('editColumnName').value = currentName;
+        document.getElementById('editColumnModal').style.display = 'flex';
+    }
+
+    function closeEditColumnModal() {
+        document.getElementById('editColumnModal').style.display = 'none';
+    }
+
+    async function submitEditColumn(e) {
+        e.preventDefault();
+        const id = document.getElementById('editColumnId').value;
+        const name = document.getElementById('editColumnName').value;
+        const colDiv = document.getElementById(`col-${id}`);
+        const position = Array.from(document.querySelectorAll('.column')).indexOf(colDiv);
+
+        try {
+            const res = await fetch(`/columns/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` },
+                body: JSON.stringify({ name, position })
+            });
+            if (res.ok) {
+                closeEditColumnModal();
+                if(colDiv) {
+                    const titleSpan = colDiv.querySelector('span.column-title');
+                    if(titleSpan) titleSpan.innerText = name;
+                }
+            }
+        } catch(err) { alert("Error al editar columna"); }
+    }
+
+    async function deleteColumn(id) {
+        if (!confirm('¿Seguro que quieres eliminar esta columna?')) return;
+        try {
+            const res = await fetch(`/columns/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${jwtToken}` }
+            });
+            if (res.ok) {
+                // Solo quitar el div de esa columna sin tocar las demás
+                const colDiv = document.getElementById(`col-${id}`);
+                if (colDiv) colDiv.remove();
+            } else {
+                const err = await res.text();
+                alert(err || 'No se pudo eliminar la columna. Asegúrate de que no tenga tareas.');
+            }
+        } catch (err) {
+            alert('Error al eliminar columna.');
+        }
+    }
+
+    function openColumnModal() {
+        document.getElementById('columnModal').style.display = 'flex';
+        document.getElementById('columnName').focus();
+    }
+
+    function closeColumnModal() {
+        document.getElementById('columnModal').style.display = 'none';
+        document.getElementById('columnForm').reset();
+    }
+
+    async function createColumn(e) {
+        e.preventDefault();
+        const claims = parseJwt(jwtToken);
+        const name = document.getElementById('columnName').value;
+        const position = document.querySelectorAll('.column').length;
+
+        try {
+            const res = await fetch('/columns', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` },
+                body: JSON.stringify({ name, userId: claims.userId, position })
+            });
+            if (res.ok) {
+                const newCol = await res.json();
+                closeColumnModal();
+                // Inyectar solo el nuevo div sin reconstruir el tablero
+                const container = document.getElementById('mainBoardContainer');
+                container.appendChild(buildColumnDiv(newCol));
+            }
+        } catch (err) {
+            alert('Error creando columna');
+        }
     }
 
     function logout() {
@@ -691,17 +846,15 @@
         document.getElementById('archiveContainer').style.display = 'none';
         document.getElementById('trashContainer').style.display = 'none';
         // Clear tasks
-        document.getElementById('list-TODO').innerHTML = '';
-        document.getElementById('list-IN_PROGRESS').innerHTML = '';
-        document.getElementById('list-DONE').innerHTML = '';
+        document.getElementById('mainBoardContainer').innerHTML = '';
         document.getElementById('list-ARCHIVE').innerHTML = '';
         document.getElementById('list-TRASH').innerHTML = '';
         localTasks = [];
     }
 
     // Modal logic
-    function openModal(status) {
-        document.getElementById('taskStatus').value = status;
+    function openModal(columnId) {
+        document.getElementById('taskColumnId').value = columnId;
         document.getElementById('taskModal').style.display = 'flex';
         document.getElementById('taskTitle').focus();
     }
@@ -716,7 +869,8 @@
         e.preventDefault();
         const title = document.getElementById('taskTitle').value;
         const desc = document.getElementById('taskDesc').value;
-        const status = document.getElementById('taskStatus').value;
+        const columnId = document.getElementById('taskColumnId').value;
+        const claims = parseJwt(jwtToken);
 
         try {
             const response = await fetch('/tasks', {
@@ -725,7 +879,7 @@
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${jwtToken}`
                 },
-                body: JSON.stringify({ title, description: desc, status })
+                body: JSON.stringify({ title, description: desc, columnId, userId: claims.userId })
             });
             if (response.ok) {
                 const newTask = await response.json();
@@ -791,6 +945,8 @@
             task.status = 'TRASH';
         } else if (task.archived) {
             task.status = 'ARCHIVE';
+        } else {
+            task.status = task.columnId;
         }
         
         let dateHtml = '';
@@ -868,6 +1024,9 @@
         const card = document.createElement('div');
         card.className = 'task-card';
         card.id = `task-${task.id}`;
+        card.draggable = true;
+        card.addEventListener('dragstart', handleTaskDragStart);
+        card.addEventListener('dragend', handleTaskDragEnd);
 
         let buttonsHtml = '';
         if (task.deleted) {
@@ -1007,11 +1166,13 @@
     }
 
     function updateCounts() {
-        ['TODO', 'IN_PROGRESS', 'DONE', 'ARCHIVE', 'TRASH'].forEach(status => {
-            const list = document.getElementById(`list-${status}`);
-            const count = list ? list.children.length : 0;
-            const counterEl = document.getElementById(`cnt-${status}`);
-            if(counterEl) counterEl.innerText = count;
+        const columns = document.querySelectorAll('.column');
+        columns.forEach(col => {
+            const list = col.querySelector('.task-list');
+            const counterEl = col.querySelector('.pill');
+            if(list && counterEl) {
+                counterEl.innerText = list.children.length;
+            }
         });
     }
 
@@ -1174,6 +1335,135 @@
         } else {
             usersContainer.classList.remove('visible');
         }
+    }
+
+    // === DRAG & DROP LOGIC ===
+    let draggedTask = null;
+    let draggedColumn = null;
+
+    // For Tasks
+    function handleTaskDragStart(e) {
+        draggedTask = this;
+        this.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        setTimeout(() => this.style.opacity = '0.5', 0);
+        e.stopPropagation(); // Prevenir que mueva la columna accidentalmente
+    }
+    
+    function handleTaskDragEnd(e) {
+        this.style.opacity = '1';
+        this.classList.remove('dragging');
+        draggedTask = null;
+    }
+
+    function handleTaskDragOver(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        
+        const targetList = e.currentTarget;
+        if (!targetList.classList.contains('task-list')) return;
+
+        const afterElement = getDragAfterElement(targetList, e.clientY);
+        if (draggedTask) {
+            if (afterElement == null) {
+                targetList.appendChild(draggedTask);
+            } else {
+                targetList.insertBefore(draggedTask, afterElement);
+            }
+        }
+    }
+
+    function handleTaskDrop(e) {
+        e.preventDefault();
+        if (draggedTask) {
+            const taskId = draggedTask.id.replace('task-', '');
+            const targetList = e.currentTarget;
+            if (!targetList.classList.contains('task-list')) return;
+
+            const newColumnId = targetList.id.replace('list-', '');
+            const siblings = Array.from(targetList.querySelectorAll('.task-card'));
+            const newPosition = siblings.indexOf(draggedTask);
+
+            // Fetch current task info to keep title/desc
+            const title = draggedTask.querySelector('.task-title').innerText;
+            const desc = draggedTask.querySelector('.task-desc').innerText;
+
+            fetch(`/tasks/${taskId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` },
+                body: JSON.stringify({ title, description: desc, columnId: newColumnId, position: newPosition })
+            });
+            updateCounts();
+        }
+    }
+
+    function getDragAfterElement(container, y) {
+        const draggableElements = [...container.querySelectorAll('.task-card:not(.dragging)')];
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    // For Columns
+    function handleColDragStart(e) {
+        if (e.target.classList.contains('task-card') || e.target.closest('.task-card')) {
+            return; // Si es una tarea, no arrastrar la columna
+        }
+        draggedColumn = this;
+        this.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        setTimeout(() => this.style.opacity = '0.5', 0);
+    }
+    function handleColDragEnd(e) {
+        this.style.opacity = '1';
+        this.classList.remove('dragging');
+        draggedColumn = null;
+    }
+    function handleColDragOver(e) {
+        e.preventDefault();
+        if(!draggedColumn) return;
+        const boardContainer = document.getElementById('mainBoardContainer');
+        const afterElement = getColDragAfterElement(boardContainer, e.clientX);
+        if (afterElement == null) {
+            boardContainer.appendChild(draggedColumn);
+        } else {
+            boardContainer.insertBefore(draggedColumn, afterElement);
+        }
+    }
+    function handleColDrop(e) {
+        e.preventDefault();
+        if (draggedColumn) {
+            const columns = Array.from(document.querySelectorAll('.column'));
+            columns.forEach((col, index) => {
+                const colId = col.id.replace('col-', '');
+                const titleSpan = col.querySelector('span.column-title');
+                if(!titleSpan) return;
+                const name = titleSpan.innerText;
+                fetch(`/columns/${colId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` },
+                    body: JSON.stringify({ name, position: index })
+                });
+            });
+        }
+    }
+    function getColDragAfterElement(container, x) {
+        const draggableElements = [...container.querySelectorAll('.column:not(.dragging)')];
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = x - box.left - box.width / 2;
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
     }
 
 </script>
