@@ -33,9 +33,19 @@ public class TaskController {
         return taskService.getTaskEvents();
     }
 
+    @GetMapping("/user/{userId}")
+    public Flux<Task> getTasksByUserId(@PathVariable String userId) {
+        return taskService.getTasksByUserId(userId);
+    }
+
+    @GetMapping("/column/{columnId}")
+    public Flux<Task> getTasksByColumnId(@PathVariable String columnId) {
+        return taskService.getTasksByColumnId(columnId);
+    }
+
     @PutMapping("/{id}")
     public Mono<Task> updateTask(@PathVariable String id, @RequestBody Task task) {
-        return taskService.updateTask(id, task.getTitle(), task.getDescription());
+        return taskService.updateTask(id, task);
     }
 
     @DeleteMapping("/{id}")
