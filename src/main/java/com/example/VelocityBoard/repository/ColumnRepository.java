@@ -8,4 +8,5 @@ import reactor.core.publisher.Flux;
 @Repository
 public interface ColumnRepository extends ReactiveMongoRepository<Column, String> {
     Flux<Column> findByUserIdOrderByPositionAsc(String userId);
+    Flux<Column> findByTableroIdOrderByPositionAsc(String tableroId);
 }

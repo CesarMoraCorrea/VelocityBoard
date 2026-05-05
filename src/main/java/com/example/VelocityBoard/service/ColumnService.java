@@ -21,6 +21,10 @@ public class ColumnService {
         return columnRepository.findByUserIdOrderByPositionAsc(userId);
     }
 
+    public Flux<Column> getColumnsByTableroId(String tableroId) {
+        return columnRepository.findByTableroIdOrderByPositionAsc(tableroId);
+    }
+
     public Mono<Column> createColumn(Column column) {
         return columnRepository.save(column);
     }
