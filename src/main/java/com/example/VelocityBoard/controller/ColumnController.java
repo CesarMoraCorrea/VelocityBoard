@@ -23,6 +23,11 @@ public class ColumnController {
         return columnService.getColumnsByUserId(userId);
     }
 
+    @GetMapping("/tablero/{tableroId}")
+    public Flux<Column> getColumnsByTableroId(@PathVariable String tableroId) {
+        return columnService.getColumnsByTableroId(tableroId);
+    }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public Mono<Column> createColumn(@RequestBody Column column) {

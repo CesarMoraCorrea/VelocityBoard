@@ -15,5 +15,6 @@ public class Column {
     private String id;
     private String name;
     private String userId;
+    private String tableroId;
     private Integer position;
 }

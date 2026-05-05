@@ -384,6 +384,140 @@
             background: linear-gradient(135deg, var(--primary), var(--accent));
         }
 
+        /* TABLEROS SECTION */
+        #tablerosSection {
+            display: none;
+            flex-direction: column;
+            min-height: 100vh;
+            background: radial-gradient(circle at top right, #1e1b4b, #0f172a);
+        }
+
+        .tableros-header-bar {
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .tableros-header-bar h1 {
+            margin: 0;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .tableros-header-bar h1 i { color: var(--primary); }
+
+        .tableros-body {
+            padding: 40px 30px;
+            flex: 1;
+        }
+
+        .tableros-title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .tableros-title-row h2 {
+            margin: 0;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 1.8rem;
+        }
+
+        .btn-crear-tablero {
+            width: auto;
+            padding: 12px 24px;
+            font-size: 0.95rem;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+        }
+
+        .tableros-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 20px;
+        }
+
+        .tablero-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            cursor: pointer;
+            transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+            animation: fadeIn 0.3s ease-out;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-height: 140px;
+        }
+
+        .tablero-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(59, 130, 246, 0.5);
+            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.15);
+        }
+
+        .tablero-card-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            color: white;
+        }
+
+        .tablero-card-nombre {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: #f1f5f9;
+        }
+
+        .tablero-card-desc {
+            font-size: 0.82rem;
+            color: #94a3b8;
+            flex: 1;
+        }
+
+        .tablero-card-fecha {
+            font-size: 0.75rem;
+            color: #475569;
+        }
+
+        .tablero-vacio {
+            grid-column: 1 / -1;
+            text-align: center;
+            color: #64748b;
+            padding: 60px 20px;
+            font-size: 1rem;
+        }
+
+        .tablero-vacio i {
+            font-size: 3rem;
+            display: block;
+            margin-bottom: 16px;
+            color: #334155;
+        }
+
+        .tableros-loading {
+            text-align: center;
+            color: #64748b;
+            padding: 60px;
+            font-size: 1rem;
+        }
+
     </style>
 </head>
 <body>
@@ -416,11 +550,60 @@
         </div>
     </div>
 
+    <!-- TABLEROS VIEW (pantalla intermedia tras login) -->
+    <div id="tablerosSection">
+        <div class="tableros-header-bar">
+            <h1><i class="fas fa-bolt"></i> VelocityBoard</h1>
+            <div>
+                <span id="tablerosGreeting" style="margin-right: 15px; color: #94a3b8;"></span>
+                <button class="btn-small" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Salir</button>
+            </div>
+        </div>
+        <div class="tableros-body">
+            <div class="tableros-title-row">
+                <h2><i class="fas fa-th-large" style="color: var(--primary); margin-right: 12px;"></i>Mis Tableros</h2>
+                <button class="btn-crear-tablero" onclick="abrirModalTablero()">
+                    <i class="fas fa-plus"></i> Nuevo Tablero
+                </button>
+            </div>
+            <div class="tableros-grid" id="tablerosGrid">
+                <div class="tableros-loading"><i class="fas fa-spinner fa-spin"></i> Cargando tableros...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CREAR TABLERO -->
+    <div class="modal-overlay" id="tableroModal" style="display:none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-columns" style="color:var(--primary);margin-right:8px"></i> Nuevo Tablero</h3>
+                <button class="close-btn" onclick="cerrarModalTablero()">&times;</button>
+            </div>
+            <form id="tableroForm" onsubmit="crearTablero(event)">
+                <div class="input-group">
+                    <i class="fas fa-tag"></i>
+                    <input type="text" id="tableroNombre" placeholder="Nombre del tablero" required autocomplete="off" maxlength="100">
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-align-left"></i>
+                    <input type="text" id="tableroDescripcion" placeholder="Descripción (opcional)" autocomplete="off" maxlength="500">
+                </div>
+                <div id="tableroError" style="color:var(--danger);font-size:0.85rem;margin-bottom:10px;"></div>
+                <button type="submit" id="tableroSubmitBtn">
+                    <i class="fas fa-plus"></i> Crear Tablero
+                </button>
+            </form>
+        </div>
+    </div>
+
     <!-- MAIN BOARD VIEW -->
     <div id="boardSection">
         <header>
-            <h1><i class="fas fa-bolt"></i> VelocityBoard</h1>
+            <h1><i class="fas fa-bolt"></i> VelocityBoard <span id="tableroActivoNombre" style="font-size:0.9rem; color:#94a3b8; font-weight:400; margin-left:8px;"></span></h1>
             <nav style="display:flex; gap: 8px;">
+                <button class="btn-nav" id="navMisTableros" onclick="volverATableros()" title="Mis Tableros">
+                    <i class="fas fa-th-large"></i> Mis Tableros
+                </button>
                 <button class="btn-nav active" id="navBoard" onclick="switchView('board')">
                     <i class="fas fa-columns"></i> Tablero
                 </button>
@@ -607,6 +790,7 @@
     let jwtToken = '';
     let abortController = null;
     let localTasks = []; // Cache to ensure no duplicates in UI
+    let tableroActual = null; // Tablero seleccionado actualmente
 
     // Automatically check for existing session
     window.onload = () => {
@@ -663,40 +847,151 @@
 
     function showBoard() {
         document.getElementById('authSection').style.display = 'none';
-        document.getElementById('boardSection').style.display = 'flex';
+        document.getElementById('boardSection').style.display = 'none';
+        document.getElementById('tablerosSection').style.display = 'flex';
 
-        // Extraer claims del JWT para personalizar UI
         const claims = parseJwt(jwtToken);
-        document.getElementById('userGreeting').innerText = `Hola, ${claims.sub || 'Usuario'}!`;
+        const saludo = `Hola, ${claims.sub || 'Usuario'}!`;
+        document.getElementById('tablerosGreeting').innerText = saludo;
+        document.getElementById('userGreeting').innerText = saludo;
         if (claims.role === 'ROLE_ADMIN') {
             document.getElementById('navUsers').style.display = 'inline-block';
         }
 
-        loadColumns().then(() => {
-            listenToStream();
-        });
+        cargarTableros();
+    }
+
+    async function cargarTableros() {
+        const grid = document.getElementById('tablerosGrid');
+        grid.innerHTML = '<div class="tableros-loading"><i class="fas fa-spinner fa-spin"></i> Cargando tableros...</div>';
+        try {
+            const res = await fetch('/tableros', {
+                headers: { 'Authorization': `Bearer ${jwtToken}` }
+            });
+            if (!res.ok) throw new Error('Error al cargar tableros');
+            const tableros = await res.json();
+            grid.innerHTML = '';
+            if (!tableros.length) {
+                grid.innerHTML = `
+                    <div class="tablero-vacio">
+                        <i class="fas fa-clipboard-list"></i>
+                        Aún no tienes tableros.<br>
+                        <span style="font-size:0.85rem;">Crea uno con el botón <strong>Nuevo Tablero</strong>.</span>
+                    </div>`;
+                return;
+            }
+            tableros.forEach(t => grid.appendChild(construirTarjetaTablero(t)));
+        } catch (e) {
+            grid.innerHTML = `<div class="tablero-vacio" style="color:var(--danger);"><i class="fas fa-exclamation-triangle"></i> No se pudieron cargar los tableros.</div>`;
+        }
+    }
+
+    function construirTarjetaTablero(tablero) {
+        const card = document.createElement('div');
+        card.className = 'tablero-card';
+        const fecha = tablero.creadoEn ? new Date(tablero.creadoEn).toLocaleDateString() : '';
+        card.innerHTML = `
+            <div class="tablero-card-icon"><i class="fas fa-columns"></i></div>
+            <div class="tablero-card-nombre">${tablero.nombre}</div>
+            <div class="tablero-card-desc">${tablero.descripcion || '<em style="opacity:0.5">Sin descripción</em>'}</div>
+            ${fecha ? `<div class="tablero-card-fecha"><i class="far fa-calendar-alt"></i> ${fecha}</div>` : ''}
+        `;
+        card.onclick = () => seleccionarTablero(tablero);
+        return card;
+    }
+
+    function seleccionarTablero(tablero) {
+        tableroActual = tablero;
+        document.getElementById('tablerosSection').style.display = 'none';
+        document.getElementById('boardSection').style.display = 'flex';
+        document.getElementById('tableroActivoNombre').innerText = `/ ${tablero.nombre}`;
+
+        // Reset estado del kanban
+        localTasks = [];
+        document.getElementById('mainBoardContainer').innerHTML = '';
+        document.getElementById('list-ARCHIVE') && (document.getElementById('list-ARCHIVE').innerHTML = '');
+        document.getElementById('list-TRASH') && (document.getElementById('list-TRASH').innerHTML = '');
+        switchView('board');
+
+        loadColumns().then(() => listenToStream());
+    }
+
+    function volverATableros() {
+        if (abortController) abortController.abort();
+        document.getElementById('boardSection').style.display = 'none';
+        document.getElementById('tablerosSection').style.display = 'flex';
+        tableroActual = null;
+        document.getElementById('tableroActivoNombre').innerText = '';
+        cargarTableros();
+    }
+
+    // ===== MODAL CREAR TABLERO =====
+    function abrirModalTablero() {
+        document.getElementById('tableroForm').reset();
+        document.getElementById('tableroError').innerText = '';
+        document.getElementById('tableroModal').style.display = 'flex';
+        document.getElementById('tableroNombre').focus();
+    }
+
+    function cerrarModalTablero() {
+        document.getElementById('tableroModal').style.display = 'none';
+    }
+
+    async function crearTablero(e) {
+        e.preventDefault();
+        const nombre = document.getElementById('tableroNombre').value.trim();
+        const descripcion = document.getElementById('tableroDescripcion').value.trim();
+        const btn = document.getElementById('tableroSubmitBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creando...';
+
+        try {
+            const res = await fetch('/tableros', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` },
+                body: JSON.stringify({ nombre, descripcion })
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                document.getElementById('tableroError').innerText = err.message || 'Error al crear el tablero';
+                return;
+            }
+            const nuevoTablero = await res.json();
+            cerrarModalTablero();
+            // Agregar tarjeta directamente sin recargar todo
+            const grid = document.getElementById('tablerosGrid');
+            const vacios = grid.querySelector('.tablero-vacio');
+            if (vacios) grid.innerHTML = '';
+            grid.prepend(construirTarjetaTablero(nuevoTablero));
+        } catch (err) {
+            document.getElementById('tableroError').innerText = 'Error de conexión';
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-plus"></i> Crear Tablero';
+        }
     }
 
     async function loadColumns() {
         const claims = parseJwt(jwtToken);
         const userId = claims.userId;
-        if (!userId) return;
+        if (!userId || !tableroActual) return;
+
+        const tableroId = tableroActual.id;
 
         try {
-            const res = await fetch(`/columns/user/${userId}`, {
+            const res = await fetch(`/columns/tablero/${tableroId}`, {
                 headers: { 'Authorization': `Bearer ${jwtToken}` }
             });
             if (res.ok) {
                 let columns = await res.json();
-                
-                // Si el usuario no tiene columnas, creamos las 3 por defecto
+
+                // Si el tablero no tiene columnas, creamos las 3 por defecto
                 if (columns.length === 0) {
-                    await fetch('/columns', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` }, body: JSON.stringify({ name: 'Por Hacer', userId: userId, position: 0 }) });
-                    await fetch('/columns', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` }, body: JSON.stringify({ name: 'En Progreso', userId: userId, position: 1 }) });
-                    await fetch('/columns', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` }, body: JSON.stringify({ name: 'Completadas', userId: userId, position: 2 }) });
-                    
-                    // Recargar de nuevo
-                    const res2 = await fetch(`/columns/user/${userId}`, { headers: { 'Authorization': `Bearer ${jwtToken}` } });
+                    await fetch('/columns', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` }, body: JSON.stringify({ name: 'Por Hacer', userId, tableroId, position: 0 }) });
+                    await fetch('/columns', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` }, body: JSON.stringify({ name: 'En Progreso', userId, tableroId, position: 1 }) });
+                    await fetch('/columns', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` }, body: JSON.stringify({ name: 'Completadas', userId, tableroId, position: 2 }) });
+
+                    const res2 = await fetch(`/columns/tablero/${tableroId}`, { headers: { 'Authorization': `Bearer ${jwtToken}` } });
                     columns = await res2.json();
                 }
 
@@ -810,12 +1105,13 @@
         const claims = parseJwt(jwtToken);
         const name = document.getElementById('columnName').value;
         const position = document.querySelectorAll('.column').length;
+        const tableroId = tableroActual ? tableroActual.id : null;
 
         try {
             const res = await fetch('/columns', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` },
-                body: JSON.stringify({ name, userId: claims.userId, position })
+                body: JSON.stringify({ name, userId: claims.userId, tableroId, position })
             });
             if (res.ok) {
                 const newCol = await res.json();
@@ -832,9 +1128,11 @@
     function logout() {
         localStorage.removeItem('vb_token');
         jwtToken = '';
+        tableroActual = null;
         if(abortController) abortController.abort();
         document.getElementById('authSection').style.display = 'flex';
         document.getElementById('boardSection').style.display = 'none';
+        document.getElementById('tablerosSection').style.display = 'none';
         // Reset nav y vistas
         document.getElementById('navUsers').style.display = 'none';
         document.getElementById('navBoard').classList.add('active');
@@ -845,6 +1143,7 @@
         document.getElementById('usersContainer').classList.remove('visible');
         document.getElementById('archiveContainer').style.display = 'none';
         document.getElementById('trashContainer').style.display = 'none';
+        document.getElementById('tableroActivoNombre').innerText = '';
         // Clear tasks
         document.getElementById('mainBoardContainer').innerHTML = '';
         document.getElementById('list-ARCHIVE').innerHTML = '';
