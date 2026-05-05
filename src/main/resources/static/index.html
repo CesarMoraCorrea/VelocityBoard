@@ -518,6 +518,68 @@
             font-size: 1rem;
         }
 
+        /* COMMENTS UI */
+        .comments-section {
+            margin-top: 20px;
+            border-top: 1px solid var(--border);
+            padding-top: 15px;
+        }
+        .comments-list {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            padding-right: 5px;
+        }
+        .comment-item {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .comment-item.sending {
+            opacity: 0.6;
+            border-style: dashed;
+        }
+        .comment-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            color: #94a3b8;
+            font-size: 0.75rem;
+        }
+        .comment-author {
+            font-weight: bold;
+            color: var(--primary);
+        }
+        .comment-content {
+            color: var(--text-color);
+            word-wrap: break-word;
+            white-space: pre-wrap;
+        }
+        .comment-input-area {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .comment-input-area textarea {
+            width: 100%;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: white;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 60px;
+            box-sizing: border-box;
+        }
+        .comment-input-area textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
     </style>
 </head>
 <body>
@@ -724,8 +786,19 @@
                 <div class="input-group">
                     <input type="text" id="editTaskDesc" placeholder="Nueva descripción" autocomplete="off">
                 </div>
-                <button type="submit">Guardar Cambios</button>
+                <button type="submit" style="margin-bottom: 15px;">Guardar Cambios</button>
             </form>
+            
+            <div class="comments-section">
+                <h4 style="margin: 0 0 10px 0; font-size: 0.95rem; color: #cbd5e1;"><i class="far fa-comments"></i> Comentarios</h4>
+                <div class="comments-list" id="commentsList">
+                    <!-- Comentarios aquí -->
+                </div>
+                <div class="comment-input-area">
+                    <textarea id="newCommentContent" placeholder="Escribe un comentario..." required></textarea>
+                    <button type="button" class="btn-small" style="align-self: flex-end; background: var(--primary); color: white; border: none; padding: 8px 15px;" onclick="submitComment()">Comentar</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1365,11 +1438,14 @@
         document.getElementById('editTaskTitle').value = decodeURIComponent(title);
         document.getElementById('editTaskDesc').value = decodeURIComponent(desc);
         document.getElementById('editTaskModal').style.display = 'flex';
+        loadComments(id);
     }
 
     function closeEditTaskModal() {
         document.getElementById('editTaskModal').style.display = 'none';
         document.getElementById('editTaskForm').reset();
+        document.getElementById('newCommentContent').value = '';
+        document.getElementById('commentsList').innerHTML = '';
     }
 
     async function submitEditTask(e) {
@@ -1763,6 +1839,109 @@
                 return closest;
             }
         }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    // === COMMENTS LOGIC ===
+    async function loadComments(taskId) {
+        const commentsList = document.getElementById('commentsList');
+        commentsList.innerHTML = '<div style="text-align:center; color:#64748b; font-size:0.8rem;">Cargando...</div>';
+        
+        try {
+            const response = await fetch(`/api/comments/task/${taskId}`, {
+                headers: { 'Authorization': `Bearer ${jwtToken}` }
+            });
+            if (response.ok) {
+                const comments = await response.json();
+                commentsList.innerHTML = '';
+                if (comments.length === 0) {
+                    commentsList.innerHTML = '<div style="text-align:center; color:#64748b; font-size:0.8rem;">Aún no hay comentarios</div>';
+                } else {
+                    comments.forEach(c => appendComment(c, false));
+                }
+            } else {
+                commentsList.innerHTML = '<div style="text-align:center; color:var(--danger); font-size:0.8rem;">Error al cargar</div>';
+            }
+        } catch (err) {
+            commentsList.innerHTML = '<div style="text-align:center; color:var(--danger); font-size:0.8rem;">Error de conexión</div>';
+        }
+    }
+
+    function appendComment(comment, isSending) {
+        const commentsList = document.getElementById('commentsList');
+        if (commentsList.innerHTML.includes('Aún no hay comentarios')) {
+            commentsList.innerHTML = '';
+        }
+
+        const div = document.createElement('div');
+        div.className = 'comment-item' + (isSending ? ' sending' : '');
+        if (comment.id) div.id = `comment-${comment.id}`;
+        
+        let dateStr = 'Enviando...';
+        if (!isSending && comment.createdAt) {
+            const dateObj = new Date(comment.createdAt);
+            dateStr = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        }
+
+        div.innerHTML = `
+            <div class="comment-header">
+                <span class="comment-author"><i class="fas fa-user-circle"></i> ${comment.authorName || 'Usuario'}</span>
+                <span>${dateStr}</span>
+            </div>
+            <div class="comment-content">${escapeHtml(comment.content)}</div>
+        `;
+        
+        commentsList.appendChild(div);
+        commentsList.scrollTop = commentsList.scrollHeight; // Auto scroll to bottom
+        return div;
+    }
+
+    async function submitComment() {
+        const taskId = document.getElementById('editTaskId').value;
+        const contentArea = document.getElementById('newCommentContent');
+        const content = contentArea.value.trim();
+        if (!content) return;
+
+        const claims = parseJwt(jwtToken);
+        const tempId = 'temp-' + Date.now();
+        
+        const tempComment = {
+            id: tempId,
+            taskId: taskId,
+            authorId: claims.userId,
+            authorName: claims.sub,
+            content: content,
+            tableroId: tableroActual ? tableroActual.id : 'Tablero General'
+        };
+
+        // Optimistic UI
+        const commentEl = appendComment(tempComment, true);
+        contentArea.value = '';
+
+        try {
+            const response = await fetch('/api/comments', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${jwtToken}`
+                },
+                body: JSON.stringify(tempComment)
+            });
+
+            if (response.status === 202) {
+                // Success, remove sending state
+                commentEl.classList.remove('sending');
+                commentEl.querySelector('.comment-header span:last-child').innerText = 'Recién ahora';
+            } else {
+                throw new Error('Server returned ' + response.status);
+            }
+        } catch (err) {
+            commentEl.querySelector('.comment-content').innerText += ' (Error al enviar)';
+            commentEl.style.borderColor = 'var(--danger)';
+        }
+    }
+
+    function escapeHtml(unsafe) {
+        return (unsafe || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
 </script>
