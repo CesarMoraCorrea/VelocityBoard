@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class UserService implements ListUsersUseCase, UpdateUserUseCase {
@@ -26,6 +28,18 @@ public class UserService implements ListUsersUseCase, UpdateUserUseCase {
     @Override
     public Flux<UserResponse> listAllUsers() {
         return userRepository.findAll()
+                .map(UserResponse::fromUser);
+    }
+
+    @Override
+    public Flux<UserResponse> searchUsers(String query) {
+        return userRepository.searchUsers(query)
+                .map(UserResponse::fromUser);
+    }
+
+    @Override
+    public Flux<UserResponse> getUsersByIds(List<String> ids) {
+        return userRepository.findAllById(ids)
                 .map(UserResponse::fromUser);
     }
 

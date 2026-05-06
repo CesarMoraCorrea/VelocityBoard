@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -53,6 +54,18 @@ public class UserController {
     })
     public Flux<UserResponse> listUsers() {
         return listUsersUseCase.listAllUsers();
+    }
+
+    @GetMapping("/search")
+    @Operation(summary = "Buscar usuarios por nombre o email")
+    public Flux<UserResponse> searchUsers(@RequestParam String query) {
+        return listUsersUseCase.searchUsers(query);
+    }
+
+    @PostMapping("/batch")
+    @Operation(summary = "Obtener detalles de usuarios por una lista de IDs")
+    public Flux<UserResponse> getUsersByIds(@RequestBody List<String> ids) {
+        return listUsersUseCase.getUsersByIds(ids);
     }
 
     @PutMapping("/{id}")

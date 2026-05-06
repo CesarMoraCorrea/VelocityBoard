@@ -7,6 +7,7 @@ import com.example.VelocityBoard.service.TableroService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
@@ -42,6 +43,17 @@ public class TableroController {
     public Mono<Tablero> obtenerTablero(@PathVariable String id) {
         return obtenerUserId()
                 .flatMap(userId -> tableroService.obtenerTableroPorId(id, userId));
+    }
+
+    @PostMapping("/{id}/members/{userIdToAdd}")
+    public Mono<Tablero> addMember(@PathVariable String id, @PathVariable String userIdToAdd) {
+        return obtenerUserId()
+                .flatMap(currentUserId -> tableroService.addMember(id, userIdToAdd, currentUserId));
+    }
+
+    @GetMapping(value = "/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<Tablero> getEvents() {
+        return tableroService.getTableroEvents();
     }
 
     private Mono<String> obtenerUserId() {
