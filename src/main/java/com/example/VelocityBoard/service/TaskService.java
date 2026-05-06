@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
+import java.util.Collection;
 
 @Service
 public class TaskService {
@@ -41,6 +42,10 @@ public class TaskService {
 
     public Flux<Task> getTasksByColumnId(String columnId) {
         return taskRepository.findByColumnIdOrderByPositionAsc(columnId);
+    }
+
+    public Flux<Task> getDeletedTasksByColumnIds(Collection<String> columnIds) {
+        return taskRepository.findByColumnIdInAndDeletedTrue(columnIds);
     }
 
     public Mono<Task> updateTask(String id, Task updatedTask) {

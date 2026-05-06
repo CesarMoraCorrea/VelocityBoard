@@ -1,5 +1,6 @@
 package com.example.VelocityBoard.controller;
 
+import com.example.VelocityBoard.model.Column;
 import com.example.VelocityBoard.model.Task;
 import com.example.VelocityBoard.repository.ColumnRepository;
 import com.example.VelocityBoard.repository.TableroRepository;
@@ -39,15 +40,19 @@ public class TaskController {
                 });
     }
 
-    private Mono<Void> checkColumnAccess(String columnId, String userId) {
-        return columnRepository.findById(columnId)
-                .flatMap(col -> tableroRepository.findById(col.getTableroId()))
+    private Mono<Void> checkTableroAccess(String tableroId, String userId) {
+        return tableroRepository.findById(tableroId)
                 .flatMap(t -> {
                     if (t.getPropietarioId().equals(userId) || t.getMiembros().contains(userId)) {
                         return Mono.empty();
                     }
                     return Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN, "Acceso denegado al tablero"));
                 });
+    }
+
+    private Mono<Void> checkColumnAccess(String columnId, String userId) {
+        return columnRepository.findById(columnId)
+                .flatMap(col -> checkTableroAccess(col.getTableroId(), userId));
     }
 
     private Mono<Void> checkTaskAccess(String taskId, String userId) {
@@ -81,6 +86,20 @@ public class TaskController {
         return obtenerUserId()
                 .flatMap(userId -> checkColumnAccess(columnId, userId))
                 .thenMany(taskService.getTasksByColumnId(columnId));
+    }
+
+    @GetMapping("/tablero/{tableroId}/deleted")
+    public Flux<Task> getDeletedTasksByTablero(@PathVariable String tableroId) {
+        return obtenerUserId()
+                .flatMap(userId -> checkTableroAccess(tableroId, userId))
+                .thenMany(columnRepository.findByTableroIdOrderByPositionAsc(tableroId)
+                        .map(Column::getId)
+                        .collectList()
+                        .flatMapMany(columnIds -> {
+                            if (columnIds.isEmpty()) return Flux.empty();
+                            return taskService.getDeletedTasksByColumnIds(columnIds);
+                        })
+                );
     }
 
     @PutMapping("/{id}")
