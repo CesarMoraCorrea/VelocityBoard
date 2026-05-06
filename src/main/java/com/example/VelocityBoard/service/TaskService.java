@@ -31,6 +31,10 @@ public class TaskService {
         return taskRepository.findAll().concatWith(sink.asFlux());
     }
 
+    public Mono<Task> getTaskById(String id) {
+        return taskRepository.findById(id);
+    }
+
     public Flux<Task> getTasksByUserId(String userId) {
         return taskRepository.findByUserId(userId);
     }

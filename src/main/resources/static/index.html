@@ -580,6 +580,69 @@
             border-color: var(--primary);
         }
 
+        .avatar-circle {
+            position: relative;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: bold;
+            border: 2px solid var(--bg-color);
+            margin-left: -8px;
+            cursor: pointer;
+        }
+        .avatar-circle:first-child {
+            margin-left: 0;
+        }
+        .member-tooltip {
+            position: absolute;
+            top: 40px;
+            right: 0;
+            background: #1e293b;
+            border: 1px solid var(--border);
+            padding: 12px;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+            width: max-content;
+            min-width: 150px;
+            z-index: 100;
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            text-align: left;
+            cursor: default;
+        }
+        .avatar-circle:hover .member-tooltip {
+            display: flex;
+        }
+        .tooltip-name {
+            font-weight: bold;
+            color: white;
+            font-size: 0.95rem;
+        }
+        .tooltip-email {
+            color: #94a3b8;
+            font-size: 0.75rem;
+        }
+        .tooltip-role {
+            margin-top: 5px;
+            font-size: 0.7rem;
+            color: #60a5fa;
+            background: rgba(59, 130, 246, 0.15);
+            padding: 3px 8px;
+            border-radius: 12px;
+            width: fit-content;
+            font-weight: bold;
+        }
+        .tooltip-role.creador {
+            color: #f59e0b;
+            background: rgba(245, 158, 11, 0.15);
+        }
     </style>
 </head>
 <body>
@@ -682,7 +745,11 @@
                     <i class="fas fa-plus"></i> Añadir Columna
                 </button>
             </nav>
-            <div>
+            <div style="display: flex; align-items: center;">
+                <div id="boardMembersContainer" style="display: flex; margin-right: 15px; gap: -5px;"></div>
+                <button class="btn-small" onclick="openAddMemberModal()" style="margin-right: 15px; border-radius: 50%; width: 35px; height: 35px; padding: 0; display: flex; align-items: center; justify-content: center;" title="Añadir miembro">
+                    <i class="fas fa-user-plus"></i>
+                </button>
                 <span id="userGreeting" style="margin-right: 15px; color: #94a3b8;">Hola!</span>
                 <button class="btn-small" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Salir</button>
             </div>
@@ -768,6 +835,23 @@
                 </div>
                 <button type="submit">Agregar al Tablero</button>
             </form>
+        </div>
+    </div>
+
+    <!-- ADD MEMBER MODAL -->
+    <div class="modal-overlay" id="addMemberModal" style="display:none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-user-plus" style="color:var(--primary);margin-right:8px"></i> Agregar Miembro</h3>
+                <button class="close-btn" onclick="closeAddMemberModal()">&times;</button>
+            </div>
+            <div style="display:flex; gap: 10px; margin-bottom: 15px;">
+                <input type="text" id="memberSearchInput" placeholder="Buscar email o usuario..." style="flex:1; padding:10px; border-radius:8px; border:1px solid var(--border); background:rgba(0,0,0,0.2); color:white;">
+                <button type="button" class="btn-small" style="width: auto; padding: 10px 15px; background:var(--primary); color:white; border:none;" onclick="searchMembers()">Buscar</button>
+            </div>
+            <div id="memberSearchResults" style="max-height: 200px; overflow-y: auto; display:flex; flex-direction:column; gap:8px;">
+                <!-- Resultados se inyectan aquí -->
+            </div>
         </div>
     </div>
 
@@ -932,6 +1016,7 @@
         }
 
         cargarTableros();
+        initTableroSSE();
     }
 
     async function cargarTableros() {
@@ -975,6 +1060,7 @@
 
     function seleccionarTablero(tablero) {
         tableroActual = tablero;
+        renderBoardMembers(tablero);
         document.getElementById('tablerosSection').style.display = 'none';
         document.getElementById('boardSection').style.display = 'flex';
         document.getElementById('tableroActivoNombre').innerText = `/ ${tablero.nombre}`;
@@ -1203,6 +1289,7 @@
         jwtToken = '';
         tableroActual = null;
         if(abortController) abortController.abort();
+        if(tableroEventSource) { tableroEventSource.close(); tableroEventSource = null; }
         document.getElementById('authSection').style.display = 'flex';
         document.getElementById('boardSection').style.display = 'none';
         document.getElementById('tablerosSection').style.display = 'none';
@@ -1942,6 +2029,159 @@
 
     function escapeHtml(unsafe) {
         return (unsafe || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    let tableroEventSource;
+
+    function initTableroSSE() {
+        const token = localStorage.getItem('vb_token');
+        if (!token) return;
+
+        if (tableroEventSource) tableroEventSource.close();
+        
+        tableroEventSource = new EventSource('/tableros/events');
+        
+        tableroEventSource.onmessage = (event) => {
+            if (document.getElementById('tablerosSection').style.display !== 'none') {
+                cargarTableros(); 
+            }
+        };
+    }
+
+    function openAddMemberModal() {
+        document.getElementById('addMemberModal').style.display = 'flex';
+        document.getElementById('memberSearchInput').value = '';
+        document.getElementById('memberSearchResults').innerHTML = '';
+    }
+
+    function closeAddMemberModal() {
+        document.getElementById('addMemberModal').style.display = 'none';
+    }
+
+    async function searchMembers() {
+        const query = document.getElementById('memberSearchInput').value;
+        if(!query) return;
+        
+        const token = localStorage.getItem('vb_token');
+        const res = await fetch(`/users/search?query=${encodeURIComponent(query)}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (res.ok) {
+            const users = await res.json();
+            const container = document.getElementById('memberSearchResults');
+            container.innerHTML = users.map(u => `
+                <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:10px; border-radius:8px;">
+                    <div>
+                        <div style="font-weight:bold; font-size:0.9rem;">${escapeHtml(u.username)}</div>
+                        <div style="font-size:0.75rem; color:#94a3b8;">${escapeHtml(u.email)}</div>
+                    </div>
+                    <button class="btn-small" style="background:var(--success); color:white; border:none;" onclick="addMemberToBoard('${u.id}')">Agregar</button>
+                </div>
+            `).join('');
+        }
+    }
+
+    async function addMemberToBoard(userId) {
+        if (!tableroActual) return;
+        const token = localStorage.getItem('vb_token');
+        
+        const res = await fetch(`/tableros/${tableroActual.id}/members/${userId}`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (res.ok) {
+            closeAddMemberModal();
+            alert("Miembro agregado exitosamente!");
+            cargarTableros();
+            const updateRes = await fetch(`/tableros/${tableroActual.id}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if(updateRes.ok) {
+                tableroActual = await updateRes.json();
+                renderBoardMembers(tableroActual);
+            }
+        } else {
+            alert("Error o no tienes permisos para agregar miembros.");
+        }
+    }
+
+    let userCache = {};
+
+    async function renderBoardMembers(tablero) {
+        const container = document.getElementById('boardMembersContainer');
+        container.innerHTML = '';
+        
+        const propietarioId = tablero.propietarioId;
+        const miembros = tablero.miembros || [];
+        
+        const allIds = [propietarioId, ...miembros].filter(id => id);
+        
+        const missingIds = allIds.filter(id => !userCache[id]);
+        
+        if (missingIds.length > 0) {
+            try {
+                const token = localStorage.getItem('vb_token');
+                const res = await fetch('/users/batch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify(missingIds)
+                });
+                if (res.ok) {
+                    const users = await res.json();
+                    users.forEach(u => {
+                        userCache[u.id] = u;
+                    });
+                }
+            } catch (e) {
+                console.error("Error fetching users batch", e);
+            }
+        }
+        
+        let html = '';
+        
+        if (propietarioId && userCache[propietarioId]) {
+            const prop = userCache[propietarioId];
+            const initial = (prop.username || '?')[0].toUpperCase();
+            html += `
+                <div class="avatar-circle">
+                    ${initial}
+                    <div class="member-tooltip">
+                        <div class="tooltip-name">${escapeHtml(prop.username)}</div>
+                        <div class="tooltip-email">${escapeHtml(prop.email || '—')}</div>
+                        <div class="tooltip-role creador"><i class="fas fa-crown"></i> Creador</div>
+                    </div>
+                </div>`;
+        } else {
+             html += `<div class="avatar-circle"><i class="fas fa-crown" style="font-size:0.6rem;"></i></div>`;
+        }
+        
+        const miembrosToRender = miembros.slice(0,3);
+        miembrosToRender.forEach(mId => {
+            if (userCache[mId]) {
+                const u = userCache[mId];
+                const initial = (u.username || '?')[0].toUpperCase();
+                html += `
+                    <div class="avatar-circle">
+                        ${initial}
+                        <div class="member-tooltip">
+                            <div class="tooltip-name">${escapeHtml(u.username)}</div>
+                            <div class="tooltip-email">${escapeHtml(u.email || '—')}</div>
+                            <div class="tooltip-role"><i class="fas fa-user"></i> Miembro</div>
+                        </div>
+                    </div>`;
+            } else {
+                html += `<div class="avatar-circle"><i class="fas fa-user" style="font-size:0.6rem;"></i></div>`;
+            }
+        });
+        
+        const totalMembers = 1 + miembros.length;
+        if (totalMembers > 4) {
+            html += `<div class="avatar-circle" title="+${totalMembers - 4} miembros">+${totalMembers - 4}</div>`;
+        }
+        
+        container.innerHTML = html;
     }
 
 </script>

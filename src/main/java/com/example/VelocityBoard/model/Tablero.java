@@ -7,7 +7,9 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 @Data
 @Builder
@@ -24,6 +26,9 @@ public class Tablero {
     private String descripcion;
 
     private String propietarioId;
+
+    @Builder.Default
+    private List<String> miembros = new ArrayList<>();
 
     @Builder.Default
     private boolean eliminado = false;

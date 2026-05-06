@@ -1,10 +1,16 @@
 package com.example.VelocityBoard.controller;
 
 import com.example.VelocityBoard.model.Task;
+import com.example.VelocityBoard.repository.ColumnRepository;
+import com.example.VelocityBoard.repository.TableroRepository;
+import com.example.VelocityBoard.security.JwtUtil;
 import com.example.VelocityBoard.service.TaskService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -13,9 +19,40 @@ import reactor.core.publisher.Mono;
 public class TaskController {
 
     private final TaskService taskService;
+    private final JwtUtil jwtUtil;
+    private final ColumnRepository columnRepository;
+    private final TableroRepository tableroRepository;
 
-    public TaskController(TaskService taskService) {
+    public TaskController(TaskService taskService, JwtUtil jwtUtil, ColumnRepository columnRepository, TableroRepository tableroRepository) {
         this.taskService = taskService;
+        this.jwtUtil = jwtUtil;
+        this.columnRepository = columnRepository;
+        this.tableroRepository = tableroRepository;
+    }
+
+    private Mono<String> obtenerUserId() {
+        return ReactiveSecurityContextHolder.getContext()
+                .map(SecurityContext::getAuthentication)
+                .map(auth -> {
+                    String token = auth.getCredentials().toString();
+                    return jwtUtil.getAllClaimsFromToken(token).get("userId", String.class);
+                });
+    }
+
+    private Mono<Void> checkColumnAccess(String columnId, String userId) {
+        return columnRepository.findById(columnId)
+                .flatMap(col -> tableroRepository.findById(col.getTableroId()))
+                .flatMap(t -> {
+                    if (t.getPropietarioId().equals(userId) || t.getMiembros().contains(userId)) {
+                        return Mono.empty();
+                    }
+                    return Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN, "Acceso denegado al tablero"));
+                });
+    }
+
+    private Mono<Void> checkTaskAccess(String taskId, String userId) {
+        return taskService.getTaskById(taskId)
+                .flatMap(task -> checkColumnAccess(task.getColumnId(), userId));
     }
 
     @PostMapping
@@ -24,12 +61,13 @@ public class TaskController {
         if (task.getCreatedAt() == null) {
             task.setCreatedAt(new java.util.Date());
         }
-        return taskService.saveAndEmitTask(task);
+        return obtenerUserId()
+                .flatMap(userId -> checkColumnAccess(task.getColumnId(), userId)
+                        .then(taskService.saveAndEmitTask(task)));
     }
 
     @GetMapping(value = "/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<Task> getEvents() {
-        // Devuelve un Flux<Task> manejado de forma reactiva (Non-Blocking)
         return taskService.getTaskEvents();
     }
 
@@ -40,37 +78,51 @@ public class TaskController {
 
     @GetMapping("/column/{columnId}")
     public Flux<Task> getTasksByColumnId(@PathVariable String columnId) {
-        return taskService.getTasksByColumnId(columnId);
+        return obtenerUserId()
+                .flatMap(userId -> checkColumnAccess(columnId, userId))
+                .thenMany(taskService.getTasksByColumnId(columnId));
     }
 
     @PutMapping("/{id}")
     public Mono<Task> updateTask(@PathVariable String id, @RequestBody Task task) {
-        return taskService.updateTask(id, task);
+        return obtenerUserId()
+                .flatMap(userId -> checkTaskAccess(id, userId)
+                        .then(taskService.updateTask(id, task)));
     }
 
     @DeleteMapping("/{id}")
     public Mono<Task> softDeleteTask(@PathVariable String id) {
-        return taskService.softDeleteTask(id);
+        return obtenerUserId()
+                .flatMap(userId -> checkTaskAccess(id, userId)
+                        .then(taskService.softDeleteTask(id)));
     }
 
     @PutMapping("/{id}/restore")
     public Mono<Task> restoreTask(@PathVariable String id) {
-        return taskService.restoreTask(id);
+        return obtenerUserId()
+                .flatMap(userId -> checkTaskAccess(id, userId)
+                        .then(taskService.restoreTask(id)));
     }
 
     @PutMapping("/{id}/archive")
     public Mono<Task> archiveTask(@PathVariable String id) {
-        return taskService.archiveTask(id);
+        return obtenerUserId()
+                .flatMap(userId -> checkTaskAccess(id, userId)
+                        .then(taskService.archiveTask(id)));
     }
 
     @PutMapping("/{id}/unarchive")
     public Mono<Task> unarchiveTask(@PathVariable String id) {
-        return taskService.unarchiveTask(id);
+        return obtenerUserId()
+                .flatMap(userId -> checkTaskAccess(id, userId)
+                        .then(taskService.unarchiveTask(id)));
     }
 
     @DeleteMapping("/{id}/hard")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public Mono<Void> hardDeleteTask(@PathVariable String id) {
-        return taskService.hardDeleteTask(id);
+        return obtenerUserId()
+                .flatMap(userId -> checkTaskAccess(id, userId)
+                        .then(taskService.hardDeleteTask(id)));
     }
 }
