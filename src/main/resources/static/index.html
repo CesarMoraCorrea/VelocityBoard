@@ -1338,7 +1338,7 @@
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${jwtToken}`
                 },
-                body: JSON.stringify({ title, description: desc, columnId, userId: claims.userId })
+                body: JSON.stringify({ title, description: desc, columnId, tableroId: tableroActual.id, userId: claims.userId })
             });
             if (response.ok) {
                 const newTask = await response.json();
@@ -1347,6 +1347,35 @@
             closeModal();
         } catch (err) {
             alert('Falló al crear la tarea');
+        }
+    }
+
+    async function loadTrashTasks() {
+        if (!tableroActual) return;
+        try {
+            const list = document.getElementById('list-TRASH');
+            list.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b;">Cargando papelera...</div>';
+            const token = localStorage.getItem('vb_token');
+            const res = await fetch(`/tasks/tablero/${tableroActual.id}/deleted`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const tasks = await res.json();
+                list.innerHTML = '';
+                document.getElementById('cnt-TRASH').innerText = '0';
+                
+                tasks.forEach(t => {
+                    // Prevent localTasks cache from blocking re-render
+                    localTasks = localTasks.filter(lt => lt !== t.id);
+                    renderTask(t);
+                });
+                
+                if (tasks.length === 0) {
+                    list.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b;">No hay tareas eliminadas</div>';
+                }
+            }
+        } catch (e) {
+            console.error('Error cargando papelera', e);
         }
     }
 
@@ -1399,6 +1428,12 @@
 
     function renderTask(task) {
         if (!task.id) return;
+
+        // Security / Scope Filter: Only process this task if its column belongs to the current board.
+        // If the column doesn't exist in the DOM, it belongs to another board.
+        if (!document.getElementById(`list-${task.columnId}`)) {
+            return; 
+        }
 
         if (task.deleted) {
             task.status = 'TRASH';
@@ -1790,6 +1825,10 @@
         boardContainer.style.display = view === 'board' ? 'flex' : 'none';
         archiveContainer.style.display = view === 'archive' ? 'flex' : 'none';
         trashContainer.style.display = view === 'trash' ? 'flex' : 'none';
+        
+        if (view === 'trash' && tableroActual) {
+            loadTrashTasks();
+        }
         
         if (view === 'users') {
             usersContainer.classList.add('visible');

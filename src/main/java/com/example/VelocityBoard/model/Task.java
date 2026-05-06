@@ -16,6 +16,7 @@ public class Task {
     private String id;
     private String userId;
     private String columnId;
+    private String tableroId;
     private String title;
     private String description;
     private List<String> tags;
