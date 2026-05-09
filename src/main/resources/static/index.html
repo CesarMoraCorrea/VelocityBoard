@@ -940,7 +940,12 @@
                 <div class="input-group">
                     <input type="text" id="editTaskDesc" placeholder="Nueva descripción" autocomplete="off">
                 </div>
-                <button type="submit" style="margin-bottom: 15px;">Guardar Cambios</button>
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <button type="submit" style="flex: 1;">Guardar Cambios</button>
+                    <button type="button" class="btn-small" style="background: rgba(255,255,255,0.1); border: 1px solid var(--border); color: white; padding: 0 15px;" onclick="openDuplicateModal()" title="Duplicar Tarea">
+                        <i class="far fa-copy"></i>
+                    </button>
+                </div>
             </form>
             
             <div class="comments-section">
@@ -953,6 +958,28 @@
                     <button type="button" class="btn-small" style="align-self: flex-end; background: var(--primary); color: white; border: none; padding: 8px 15px;" onclick="submitComment()">Comentar</button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- DUPLICATE TASK MODAL -->
+    <div class="modal-overlay" id="duplicateTaskModal" style="display:none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Duplicar Tarea</h3>
+                <button class="close-btn" onclick="closeDuplicateModal()">&times;</button>
+            </div>
+            <form id="duplicateTaskForm" onsubmit="submitDuplicateTask(event)">
+                <input type="hidden" id="duplicateTaskId">
+                <div class="input-group">
+                    <label style="display:block; margin-bottom:10px; font-size:0.9rem; color:#cbd5e1;">¿En qué columna deseas duplicar esta tarea?</label>
+                    <select id="duplicateTargetColumn" class="modal-select">
+                        <!-- Opciones de columnas inyectadas aquí -->
+                    </select>
+                </div>
+                <button type="submit" style="margin-bottom: 15px;">
+                    <i class="far fa-copy"></i> Confirmar Duplicación
+                </button>
+            </form>
         </div>
     </div>
 
@@ -2265,280 +2292,72 @@
         return (unsafe || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    let tableroEventSource;
-
-    function initTableroSSE() {
-        const token = localStorage.getItem('vb_token');
-        if (!token) return;
-
-        if (tableroEventSource) tableroEventSource.close();
+    // ======== DUPLICATE TASK LOGIC ========
+    function openDuplicateModal() {
+        const taskId = document.getElementById('editTaskId').value;
+        if (!taskId) return;
         
-        tableroEventSource = new EventSource('/tableros/events');
+        document.getElementById('duplicateTaskId').value = taskId;
         
-        tableroEventSource.onmessage = (event) => {
-            if (document.getElementById('tablerosSection').style.display !== 'none') {
-                cargarTableros(); 
-            }
-            if (tableroActual && document.getElementById('boardSection').style.display !== 'none') {
-                try {
-                    const updatedTablero = JSON.parse(event.data);
-                    if (updatedTablero.id === tableroActual.id) {
-                        const claims = parseJwt(token);
-                        const currentUserId = claims.userId;
-                        
-                        if (updatedTablero.propietarioId !== currentUserId && !updatedTablero.miembros.includes(currentUserId)) {
-                            // The current user has been removed from this board
-                            alert("Has sido removido de este tablero.");
-                            showBoard(); // Returns to main dashboard
-                            return;
-                        }
-
-                        // Not removed, simply update the header if member list changed
-                        tableroActual = updatedTablero;
-                        renderBoardMembers(tableroActual);
-                    }
-                } catch(e) {}
-            }
-        };
-    }
-
-    function openAddMemberModal() {
-        document.getElementById('addMemberModal').style.display = 'flex';
-        document.getElementById('memberSearchInput').value = '';
-        document.getElementById('memberSearchResults').innerHTML = '';
-    }
-
-    function closeAddMemberModal() {
-        document.getElementById('addMemberModal').style.display = 'none';
-    }
-
-    async function searchMembers() {
-        const query = document.getElementById('memberSearchInput').value;
-        if(!query) return;
+        const select = document.getElementById('duplicateTargetColumn');
+        select.innerHTML = '';
         
-        const token = localStorage.getItem('vb_token');
-        const res = await fetch(`/users/search?query=${encodeURIComponent(query)}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (res.ok) {
-            const users = await res.json();
-            const container = document.getElementById('memberSearchResults');
-            container.innerHTML = users.map(u => `
-                <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:10px; border-radius:8px;">
-                    <div>
-                        <div style="font-weight:bold; font-size:0.9rem;">${escapeHtml(u.username)}</div>
-                        <div style="font-size:0.75rem; color:#94a3b8;">${escapeHtml(u.email)}</div>
-                    </div>
-                    <button class="btn-small" style="background:var(--success); color:white; border:none;" onclick="addMemberToBoard('${u.id}')">Agregar</button>
-                </div>
-            `).join('');
-        }
-    }
-
-    async function addMemberToBoard(userId) {
-        if (!tableroActual) return;
-        const token = localStorage.getItem('vb_token');
-        
-        const res = await fetch(`/tableros/${tableroActual.id}/members/${userId}`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (res.ok) {
-            closeAddMemberModal();
-            alert("Miembro agregado exitosamente!");
-            cargarTableros();
-            const updateRes = await fetch(`/tableros/${tableroActual.id}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+        const columnEls = document.querySelectorAll('.column');
+        if (columnEls.length === 0) {
+            select.innerHTML = '<option value="">No hay columnas disponibles</option>';
+        } else {
+            columnEls.forEach(col => {
+                const colId = col.id.replace('col-', '');
+                if (colId === 'ARCHIVE' || colId === 'TRASH') return; // Skip special columns
+                
+                const colName = col.querySelector('.column-header span').innerText;
+                const option = document.createElement('option');
+                option.value = colId;
+                option.textContent = colName;
+                select.appendChild(option);
             });
-            if(updateRes.ok) {
-                tableroActual = await updateRes.json();
-                renderBoardMembers(tableroActual);
-            }
-        } else {
-            alert("Error o no tienes permisos para agregar miembros.");
-        }
-    }
-
-    let currentConfirmCallback = null;
-
-    function showConfirmModal({ title, message, confirmText, type = 'danger', onConfirm }) {
-        document.getElementById('confirmModalTitleText').innerText = title || 'Confirmar';
-        document.getElementById('confirmModalMessage').innerText = message;
-        
-        const actionBtn = document.getElementById('confirmModalActionBtn');
-        actionBtn.innerText = confirmText || 'Confirmar';
-        
-        const titleEl = document.getElementById('confirmModalTitle');
-        const iconEl = document.getElementById('confirmModalIcon');
-
-        if (type === 'danger') {
-            titleEl.style.color = 'var(--danger)';
-            actionBtn.style.background = 'var(--danger)';
-            iconEl.className = 'fas fa-exclamation-triangle';
-        } else if (type === 'warning') {
-            titleEl.style.color = '#eab308';
-            actionBtn.style.background = '#eab308';
-            iconEl.className = 'fas fa-exclamation-circle';
-        } else if (type === 'info') {
-            titleEl.style.color = 'var(--primary)';
-            actionBtn.style.background = 'var(--primary)';
-            iconEl.className = 'fas fa-info-circle';
         }
         
-        currentConfirmCallback = onConfirm;
-        document.getElementById('globalConfirmModal').style.display = 'flex';
+        closeEditTaskModal();
+        document.getElementById('duplicateTaskModal').style.display = 'flex';
     }
 
-    function closeGlobalConfirm() {
-        document.getElementById('globalConfirmModal').style.display = 'none';
-        currentConfirmCallback = null;
+    function closeDuplicateModal() {
+        document.getElementById('duplicateTaskModal').style.display = 'none';
+        document.getElementById('duplicateTaskForm').reset();
     }
 
-    document.getElementById('confirmModalActionBtn').onclick = () => {
-        if (currentConfirmCallback) currentConfirmCallback();
-        closeGlobalConfirm();
-    };
+    async function submitDuplicateTask(e) {
+        e.preventDefault();
+        const taskId = document.getElementById('duplicateTaskId').value;
+        const targetColumnId = document.getElementById('duplicateTargetColumn').value;
+        
+        const btn = e.target.querySelector('button[type="submit"]');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Duplicando...';
+        btn.disabled = true;
 
-    function confirmRemoveMember(userId, username) {
-        showConfirmModal({
-            title: 'Confirmar Eliminación',
-            message: `¿Estás seguro de que deseas remover a ${username} de este tablero?`,
-            confirmText: 'Sí, Remover',
-            type: 'danger',
-            onConfirm: () => removeMemberFromBoard(userId)
-        });
-    }
-
-    async function removeMemberFromBoard(userId) {
-        if (!tableroActual) return;
-        const token = localStorage.getItem('vb_token');
-        
-        const res = await fetch(`/tableros/${tableroActual.id}/members/${userId}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (res.ok) {
-            // Local state update
-            if (tableroActual.miembros) {
-                tableroActual.miembros = tableroActual.miembros.filter(id => id !== userId);
-            }
-            renderBoardMembers(tableroActual);
-        } else {
-            alert("Error o no tienes permisos para remover miembros.");
-        }
-    }
-
-    let userCache = {};
-
-    async function renderBoardMembers(tablero) {
-        const container = document.getElementById('boardMembersContainer');
-        container.innerHTML = '';
-        
-        const propietarioId = tablero.propietarioId;
-        const miembros = tablero.miembros || [];
-        
-        const token = localStorage.getItem('vb_token');
-        const claims = token ? parseJwt(token) : {};
-        const isCreator = claims.userId === propietarioId;
-        
-        const allIds = [propietarioId, ...miembros].filter(id => id);
-        
-        const missingIds = allIds.filter(id => !userCache[id]);
-        
-        if (missingIds.length > 0) {
-            try {
-                const res = await fetch('/users/batch', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify(missingIds)
-                });
-                if (res.ok) {
-                    const users = await res.json();
-                    users.forEach(u => {
-                        userCache[u.id] = u;
-                    });
-                }
-            } catch (e) {
-                console.error("Error fetching users batch", e);
-            }
-        }
-        
-        let html = '';
-        
-        if (propietarioId && userCache[propietarioId]) {
-            const prop = userCache[propietarioId];
-            const initial = (prop.username || '?')[0].toUpperCase();
-            html += `
-                <div class="avatar-circle" onclick="toggleMemberTooltip(event, this)">
-                    ${initial}
-                    <div class="member-tooltip">
-                        <div class="tooltip-name">${escapeHtml(prop.username)}</div>
-                        <div class="tooltip-email">${escapeHtml(prop.email || '—')}</div>
-                        <div class="tooltip-role creador"><i class="fas fa-crown"></i> Creador</div>
-                    </div>
-                </div>`;
-        } else {
-             html += `<div class="avatar-circle"><i class="fas fa-crown" style="font-size:0.6rem;"></i></div>`;
-        }
-        
-        const miembrosToRender = miembros.slice(0,3);
-        miembrosToRender.forEach(mId => {
-            if (userCache[mId]) {
-                const u = userCache[mId];
-                const initial = (u.username || '?')[0].toUpperCase();
-                html += `
-                    <div class="avatar-circle" onclick="toggleMemberTooltip(event, this)">
-                        ${initial}
-                        <div class="member-tooltip">
-                            <div class="tooltip-name">${escapeHtml(u.username)}</div>
-                            <div class="tooltip-email">${escapeHtml(u.email || '—')}</div>
-                            <div class="tooltip-role"><i class="fas fa-user"></i> Miembro</div>
-                            ${isCreator ? `<button class="btn-small" style="background:var(--danger); color:white; border:none; margin-top:10px; width:100%; display:flex; justify-content:center; align-items:center; gap:5px;" onclick="confirmRemoveMember('${u.id}', '${escapeHtml(u.username)}')"><i class="fas fa-times"></i> Remover</button>` : ''}
-                        </div>
-                    </div>`;
+        try {
+            const response = await fetch(`/tasks/${taskId}/duplicate`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${jwtToken}`
+                },
+                body: JSON.stringify({ targetColumnId })
+            });
+            
+            if (response.ok) {
+                closeDuplicateModal();
             } else {
-                html += `<div class="avatar-circle"><i class="fas fa-user" style="font-size:0.6rem;"></i></div>`;
+                throw new Error('Error al duplicar');
             }
-        });
-        
-        const totalMembers = 1 + miembros.length;
-        if (totalMembers > 4) {
-            html += `<div class="avatar-circle" title="+${totalMembers - 4} miembros">+${totalMembers - 4}</div>`;
+        } catch (err) {
+            alert('Falló al duplicar la tarea.');
+        } finally {
+            btn.innerHTML = '<i class="far fa-copy"></i> Confirmar Duplicación';
+            btn.disabled = false;
         }
-        
-        container.innerHTML = html;
     }
-
-    // Toggle tooltip logic
-    function toggleMemberTooltip(event, element) {
-        event.stopPropagation(); // Prevent document click from immediately closing it
-        
-        // Close all other active tooltips
-        document.querySelectorAll('.avatar-circle.active').forEach(el => {
-            if (el !== element) {
-                el.classList.remove('active');
-            }
-        });
-        
-        // Toggle current
-        element.classList.toggle('active');
-    }
-
-    // Global click listener to close tooltips when clicking outside
-    document.addEventListener('click', function(event) {
-        // If clicking inside a tooltip itself, do nothing
-        if (event.target.closest('.member-tooltip')) {
-            return;
-        }
-        
-        // Otherwise, close all tooltips
-        document.querySelectorAll('.avatar-circle.active').forEach(el => {
-            el.classList.remove('active');
-        });
-    });
 
 </script>
 </body>
