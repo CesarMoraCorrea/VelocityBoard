@@ -942,6 +942,19 @@
         </div>
     </div>
 
+    <!-- HISTORY MODAL -->
+    <div class="modal-overlay" id="historyModal" style="display:none;">
+        <div class="modal" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-history" style="color:var(--primary);margin-right:8px"></i> Historial de Tarea</h3>
+                <button class="close-btn" onclick="closeHistoryModal()">&times;</button>
+            </div>
+            <div id="historyList" style="max-height: 350px; overflow-y: auto; display:flex; flex-direction:column; gap:8px;">
+                <!-- Historial se inyecta aquí -->
+            </div>
+        </div>
+    </div>
+
 <script>
     let currentMode = 'login';
     let jwtToken = '';
@@ -1452,7 +1465,18 @@
             }
             const dateObj = new Date(dateVal);
             dateStr = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-            dateHtml = `<div class="task-date" style="font-size: 0.75rem; color: #64748b; margin-top: 8px;"><i class="far fa-clock"></i> ${dateStr}</div>`;
+        }
+        
+        let creatorHtml = '';
+        if (task.createdBy) {
+            creatorHtml = `<span style="color: var(--primary); font-weight: 500;">Creado por: ${escapeHtml(task.createdBy)}</span>`;
+        }
+        
+        if (dateStr || creatorHtml) {
+            dateHtml = `<div class="task-date" style="font-size: 0.75rem; color: #64748b; margin-top: 8px; display: flex; justify-content: space-between;">
+                            <span><i class="far fa-clock"></i> ${dateStr}</span>
+                            ${creatorHtml}
+                        </div>`;
         }
 
         const existingCard = document.getElementById(`task-${task.id}`);
@@ -1461,14 +1485,15 @@
             existingCard.querySelector('.task-desc').innerText = task.description || '';
             
             let dateEl = existingCard.querySelector('.task-date');
-            if (dateStr) {
+            if (dateStr || creatorHtml) {
+                const newInner = `<span><i class="far fa-clock"></i> ${dateStr}</span>${creatorHtml}`;
                 if (dateEl) {
-                    dateEl.innerHTML = `<i class="far fa-clock"></i> ${dateStr}`;
+                    dateEl.innerHTML = newInner;
                 } else {
                     const newDateEl = document.createElement('div');
                     newDateEl.className = 'task-date';
-                    newDateEl.style.cssText = 'font-size: 0.75rem; color: #64748b; margin-top: 8px;';
-                    newDateEl.innerHTML = `<i class="far fa-clock"></i> ${dateStr}`;
+                    newDateEl.style.cssText = 'font-size: 0.75rem; color: #64748b; margin-top: 8px; display: flex; justify-content: space-between;';
+                    newDateEl.innerHTML = newInner;
                     const footer = existingCard.querySelector('.task-footer');
                     existingCard.insertBefore(newDateEl, footer);
                 }
@@ -1491,6 +1516,7 @@
                 buttonsHtml = `
                     <button class="edit-task-btn" style="color:#94a3b8;border-color:#94a3b8;margin-right:5px;" onclick="archiveTask('${task.id}')" title="Archivar"><i class="fas fa-archive"></i></button>
                     <button class="edit-task-btn" style="color:var(--danger);border-color:var(--danger);margin-right:5px;" onclick="softDeleteTask('${task.id}')" title="Eliminar"><i class="fas fa-trash"></i></button>
+                    <button class="edit-task-btn" style="color:var(--accent);border-color:var(--accent);margin-right:5px;" onclick="openHistoryModal('${task.id}')" title="Historial"><i class="fas fa-history"></i></button>
                     <button class="edit-task-btn" onclick="openEditTaskModal('${task.id}', '${encodeURIComponent(task.title || '')}', '${encodeURIComponent(task.description || '')}')">Editar</button>
                 `;
             }
@@ -1505,6 +1531,10 @@
                 targetList.appendChild(existingCard);
             }
             updateCounts();
+            
+            if (activeHistoryTaskId === task.id && document.getElementById('historyModal').style.display === 'flex') {
+                openHistoryModal(task.id);
+            }
             return;
         }
 
@@ -1537,6 +1567,7 @@
             buttonsHtml = `
                 <button class="edit-task-btn" style="color:#94a3b8;border-color:#94a3b8;margin-right:5px;" onclick="archiveTask('${task.id}')" title="Archivar"><i class="fas fa-archive"></i></button>
                 <button class="edit-task-btn" style="color:var(--danger);border-color:var(--danger);margin-right:5px;" onclick="softDeleteTask('${task.id}')" title="Eliminar"><i class="fas fa-trash"></i></button>
+                <button class="edit-task-btn" style="color:var(--accent);border-color:var(--accent);margin-right:5px;" onclick="openHistoryModal('${task.id}')" title="Historial"><i class="fas fa-history"></i></button>
                 <button class="edit-task-btn" onclick="openEditTaskModal('${task.id}', '${encodeURIComponent(task.title || '')}', '${encodeURIComponent(task.description || '')}')">Editar</button>
             `;
         }
@@ -1553,6 +1584,10 @@
         `;
         container.appendChild(card);
         updateCounts();
+
+        if (activeHistoryTaskId === task.id && document.getElementById('historyModal').style.display === 'flex') {
+            openHistoryModal(task.id);
+        }
     }
 
     function openEditTaskModal(id, title, desc) {
@@ -1660,6 +1695,53 @@
                 renderTask(unarchivedTask);
             }
         } catch (err) { console.error('Error unarchiving task'); }
+    }
+
+    let activeHistoryTaskId = null;
+
+    async function openHistoryModal(taskId) {
+        activeHistoryTaskId = taskId;
+        document.getElementById('historyModal').style.display = 'flex';
+        const list = document.getElementById('historyList');
+        list.innerHTML = '<div style="text-align:center; padding: 20px; color: #64748b;"><i class="fas fa-spinner fa-spin"></i> Cargando historial...</div>';
+
+        try {
+            const res = await fetch(`/tasks/${taskId}/history`, {
+                headers: { 'Authorization': `Bearer ${jwtToken}` }
+            });
+            if (res.ok) {
+                const activities = await res.json();
+                if (!Array.isArray(activities) || activities.length === 0) {
+                    list.innerHTML = '<div style="text-align:center; padding: 20px; color: #64748b;">No hay actividad registrada para esta tarea.</div>';
+                    return;
+                }
+                
+                list.innerHTML = activities.map(act => {
+                    let dateStr = '';
+                    if (act.timestamp) {
+                        const dateObj = new Date(act.timestamp);
+                        dateStr = dateObj.toLocaleDateString() + ' a las ' + dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    }
+                    return `
+                        <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 0.85rem; margin-bottom: 8px;">
+                            <span style="color: var(--primary); font-weight: 600;">[${escapeHtml(act.username || 'Usuario Desconocido')}]</span> 
+                            <span style="color: #f8fafc;">${escapeHtml(act.action || 'realizó una acción')}</span>
+                            <div style="color: #64748b; font-size: 0.75rem; margin-top: 4px;"><i class="far fa-clock"></i> el ${dateStr}</div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                list.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--danger);">Error al cargar el historial</div>';
+            }
+        } catch (err) {
+            list.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--danger);">Error de red</div>';
+        }
+    }
+
+    function closeHistoryModal() {
+        activeHistoryTaskId = null;
+        document.getElementById('historyModal').style.display = 'none';
+        document.getElementById('historyList').innerHTML = '';
     }
 
     function updateCounts() {
