@@ -24,4 +24,7 @@ public class Task {
     private boolean deleted = false;
     private boolean isArchived = false;
     private Date createdAt = new Date();
+    private String createdBy;
+    private Date updatedAt;
+    private String updatedBy;
 }
