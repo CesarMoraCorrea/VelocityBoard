@@ -955,7 +955,12 @@
                 <div class="comment-input-area" style="margin-bottom: 20px;">
                     <textarea id="editTaskDesc" placeholder="Nueva descripción"></textarea>
                 </div>
-                <button type="submit" style="margin-bottom: 15px;">Guardar Cambios</button>
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <button type="submit" style="flex: 1;">Guardar Cambios</button>
+                    <button type="button" class="btn-small" style="background: rgba(255,255,255,0.1); border: 1px solid var(--border); color: white; padding: 0 15px;" onclick="openDuplicateModal()" title="Duplicar Tarea">
+                        <i class="far fa-copy"></i>
+                    </button>
+                </div>
             </form>
             
             <div class="comments-section">
@@ -968,6 +973,28 @@
                     <button type="button" class="btn-small" style="align-self: flex-end; background: var(--primary); color: white; border: none; padding: 8px 15px;" onclick="submitComment()">Comentar</button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- DUPLICATE TASK MODAL -->
+    <div class="modal-overlay" id="duplicateTaskModal" style="display:none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Duplicar Tarea</h3>
+                <button class="close-icon-btn" onclick="closeDuplicateModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="duplicateTaskForm" onsubmit="submitDuplicateTask(event)">
+                <input type="hidden" id="duplicateTaskId">
+                <div class="input-group">
+                    <label style="display:block; margin-bottom:10px; font-size:0.9rem; color:#cbd5e1;">¿En qué columna deseas duplicar esta tarea?</label>
+                    <select id="duplicateTargetColumn" class="modal-select">
+                        <!-- Opciones de columnas inyectadas aquí -->
+                    </select>
+                </div>
+                <button type="submit" style="margin-bottom: 15px;">
+                    <i class="far fa-copy"></i> Confirmar Duplicación
+                </button>
+            </form>
         </div>
     </div>
 
@@ -2554,6 +2581,73 @@
             el.classList.remove('active');
         });
     });
+
+    // ======== DUPLICATE TASK LOGIC ========
+    function openDuplicateModal() {
+        const taskId = document.getElementById('editTaskId').value;
+        if (!taskId) return;
+        
+        document.getElementById('duplicateTaskId').value = taskId;
+        
+        const select = document.getElementById('duplicateTargetColumn');
+        select.innerHTML = '';
+        
+        const columnEls = document.querySelectorAll('.column');
+        if (columnEls.length === 0) {
+            select.innerHTML = '<option value="">No hay columnas disponibles</option>';
+        } else {
+            columnEls.forEach(col => {
+                const colId = col.id.replace('col-', '');
+                if (colId === 'ARCHIVE' || colId === 'TRASH') return; // Skip special columns
+                
+                const colName = col.querySelector('.column-header span').innerText;
+                const option = document.createElement('option');
+                option.value = colId;
+                option.textContent = colName;
+                select.appendChild(option);
+            });
+        }
+        
+        closeEditTaskModal();
+        document.getElementById('duplicateTaskModal').style.display = 'flex';
+    }
+
+    function closeDuplicateModal() {
+        document.getElementById('duplicateTaskModal').style.display = 'none';
+        document.getElementById('duplicateTaskForm').reset();
+    }
+
+    async function submitDuplicateTask(e) {
+        e.preventDefault();
+        const taskId = document.getElementById('duplicateTaskId').value;
+        const targetColumnId = document.getElementById('duplicateTargetColumn').value;
+        
+        const btn = e.target.querySelector('button[type="submit"]');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Duplicando...';
+        btn.disabled = true;
+
+        try {
+            const response = await fetch(`/tasks/${taskId}/duplicate`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${jwtToken}`
+                },
+                body: JSON.stringify({ targetColumnId })
+            });
+            
+            if (response.ok) {
+                closeDuplicateModal();
+            } else {
+                throw new Error('Error al duplicar');
+            }
+        } catch (err) {
+            alert('Falló al duplicar la tarea.');
+        } finally {
+            btn.innerHTML = '<i class="far fa-copy"></i> Confirmar Duplicación';
+            btn.disabled = false;
+        }
+    }
 
 </script>
 </body>
