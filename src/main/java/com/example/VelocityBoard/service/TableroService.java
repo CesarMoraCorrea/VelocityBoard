@@ -49,6 +49,18 @@ public class TableroService {
                 });
     }
 
+    public Mono<Tablero> removeMember(String tableroId, String userIdToRemove, String currentUserId) {
+        return tableroRepository.findById(tableroId)
+                .filter(t -> t.getPropietarioId().equals(currentUserId))
+                .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo el propietario puede remover miembros")))
+                .flatMap(t -> {
+                    if (t.getMiembros().contains(userIdToRemove)) {
+                        t.getMiembros().remove(userIdToRemove);
+                    }
+                    return tableroRepository.save(t).doOnSuccess(sink::tryEmitNext);
+                });
+    }
+
     public Flux<Tablero> getTableroEvents() {
         return sink.asFlux();
     }
