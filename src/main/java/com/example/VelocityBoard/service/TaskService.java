@@ -91,4 +91,30 @@ public class TaskService {
     public Mono<Void> hardDeleteTask(String id) {
         return taskRepository.deleteById(id);
     }
+
+    public Mono<Task> duplicateTask(String id, String targetColumnId) {
+        return taskRepository.findById(id)
+                .flatMap(originalTask -> {
+                    Task newTask = new Task();
+                    newTask.setTitle("Copia de " + originalTask.getTitle());
+                    newTask.setDescription(originalTask.getDescription());
+                    newTask.setTags(originalTask.getTags());
+                    newTask.setUserId(originalTask.getUserId());
+                    newTask.setPosition(originalTask.getPosition());
+                    
+                    if (targetColumnId != null && !targetColumnId.isEmpty()) {
+                        newTask.setColumnId(targetColumnId);
+                    } else {
+                        newTask.setColumnId(originalTask.getColumnId());
+                    }
+                    
+                    newTask.setCreatedAt(new java.util.Date());
+                    newTask.setDeleted(false);
+                    newTask.setArchived(false);
+                    // id is left as null so MongoDB generates a new one
+                    
+                    return taskRepository.save(newTask)
+                            .doOnSuccess(savedTask -> sink.tryEmitNext(savedTask));
+                });
+    }
 }

@@ -73,4 +73,15 @@ public class TaskController {
     public Mono<Void> hardDeleteTask(@PathVariable String id) {
         return taskService.hardDeleteTask(id);
     }
+
+    public static class DuplicateRequest {
+        public String targetColumnId;
+    }
+
+    @PostMapping("/{id}/duplicate")
+    @ResponseStatus(HttpStatus.CREATED)
+    public Mono<Task> duplicateTask(@PathVariable String id, @RequestBody(required = false) DuplicateRequest request) {
+        String targetColumnId = (request != null) ? request.targetColumnId : null;
+        return taskService.duplicateTask(id, targetColumnId);
+    }
 }
