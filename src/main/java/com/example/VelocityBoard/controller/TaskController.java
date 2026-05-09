@@ -186,15 +186,4 @@ public class TaskController {
                 .flatMap(info -> checkTaskAccess(id, info[0])
                         .then(taskService.hardDeleteTask(id, info[1])));
     }
-
-    public static class DuplicateRequest {
-        public String targetColumnId;
-    }
-
-    @PostMapping("/{id}/duplicate")
-    @ResponseStatus(HttpStatus.CREATED)
-    public Mono<Task> duplicateTask(@PathVariable String id, @RequestBody(required = false) DuplicateRequest request) {
-        String targetColumnId = (request != null) ? request.targetColumnId : null;
-        return taskService.duplicateTask(id, targetColumnId);
-    }
 }
