@@ -259,8 +259,55 @@
             width: auto;
             padding: 6px 12px;
             font-size: 0.75rem;
-            margin-left: auto;
             border-radius: 6px;
+        }
+
+        .task-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+        }
+
+        .icon-btn {
+            background: transparent;
+            border: 1px solid transparent;
+            width: 28px;
+            height: 28px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.85rem;
+        }
+
+        .icon-btn.danger {
+            color: #ef4444;
+        }
+        .icon-btn.danger:hover {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+            border-color: rgba(239, 68, 68, 0.2);
+        }
+
+        .icon-btn.archive {
+            color: #94a3b8;
+        }
+        .icon-btn.archive:hover {
+            background: rgba(148, 163, 184, 0.15);
+            color: #cbd5e1;
+            border-color: rgba(148, 163, 184, 0.25);
+        }
+
+        .icon-btn.history {
+            color: #a855f7;
+        }
+        .icon-btn.history:hover {
+            background: rgba(168, 85, 247, 0.15);
+            color: #d8b4fe;
+            border-color: rgba(168, 85, 247, 0.25);
         }
 
         .add-task-btn {
@@ -309,6 +356,29 @@
         .modal-header h3 { margin: 0; }
         .close-btn { background: none; border: none; color: #94a3b8; font-size: 1.5rem; padding: 0; cursor: pointer;}
         .close-btn:hover { color: white; }
+
+        .close-icon-btn {
+            background: transparent;
+            border: 1px solid rgba(56, 189, 248, 0.15);
+            color: #cbd5e1;
+            font-size: 1.1rem;
+            width: 32px;
+            height: 32px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.15);
+            transition: all 0.2s ease;
+        }
+        .close-icon-btn:hover {
+            background: rgba(56, 189, 248, 0.15);
+            color: #ffffff;
+            border-color: rgba(56, 189, 248, 0.4);
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+        }
 
         .pill {
             padding: 4px 8px;
@@ -617,7 +687,7 @@
             text-align: left;
             cursor: default;
         }
-        .avatar-circle:hover .member-tooltip {
+        .avatar-circle.active .member-tooltip {
             display: flex;
         }
         .tooltip-name {
@@ -860,7 +930,7 @@
         <div class="modal">
             <div class="modal-header">
                 <h3>Editar Tarjeta</h3>
-                <button class="close-btn" onclick="closeEditTaskModal()">&times;</button>
+                <button class="close-icon-btn" onclick="closeEditTaskModal()"><i class="fas fa-times"></i></button>
             </div>
             <form id="editTaskForm" onsubmit="submitEditTask(event)">
                 <input type="hidden" id="editTaskId">
@@ -951,6 +1021,20 @@
             </div>
             <div id="historyList" style="max-height: 350px; overflow-y: auto; display:flex; flex-direction:column; gap:8px;">
                 <!-- Historial se inyecta aquí -->
+            </div>
+        </div>
+    </div>
+
+    <!-- GLOBAL CONFIRMATION MODAL -->
+    <div class="modal-overlay" id="globalConfirmModal" style="display:none; z-index: 9999;">
+        <div class="modal" style="max-width: 400px; text-align: center;">
+            <div class="modal-header" style="justify-content: center; border-bottom: none; padding-bottom: 0;">
+                <h3 id="confirmModalTitle" style="color: var(--danger);"><i id="confirmModalIcon" class="fas fa-exclamation-triangle"></i> <span id="confirmModalTitleText">Confirmar</span></h3>
+            </div>
+            <p style="margin: 20px 0; font-size: 1.05rem;" id="confirmModalMessage">¿Estás seguro?</p>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button class="btn-small" style="background:var(--bg-card); color:white; border:1px solid var(--border);" onclick="closeGlobalConfirm()">Cancelar</button>
+                <button class="btn-small" style="background:var(--danger); color:white; border:none;" id="confirmModalActionBtn">Confirmar</button>
             </div>
         </div>
     </div>
@@ -1242,24 +1326,30 @@
         } catch(err) { alert("Error al editar columna"); }
     }
 
-    async function deleteColumn(id) {
-        if (!confirm('¿Seguro que quieres eliminar esta columna?')) return;
-        try {
-            const res = await fetch(`/columns/${id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${jwtToken}` }
-            });
-            if (res.ok) {
-                // Solo quitar el div de esa columna sin tocar las demás
-                const colDiv = document.getElementById(`col-${id}`);
-                if (colDiv) colDiv.remove();
-            } else {
-                const err = await res.text();
-                alert(err || 'No se pudo eliminar la columna. Asegúrate de que no tenga tareas.');
+    function deleteColumn(id) {
+        showConfirmModal({
+            title: 'Eliminar Columna',
+            message: '¿Seguro que quieres eliminar esta columna?',
+            confirmText: 'Sí, Eliminar',
+            type: 'danger',
+            onConfirm: async () => {
+                try {
+                    const res = await fetch(`/columns/${id}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${jwtToken}` }
+                    });
+                    if (res.ok) {
+                        const colDiv = document.getElementById(`col-${id}`);
+                        if (colDiv) colDiv.remove();
+                    } else {
+                        const err = await res.text();
+                        alert(err || 'No se pudo eliminar la columna. Asegúrate de que no tenga tareas.');
+                    }
+                } catch (err) {
+                    alert('Error al eliminar columna.');
+                }
             }
-        } catch (err) {
-            alert('Error al eliminar columna.');
-        }
+        });
     }
 
     function openColumnModal() {
@@ -1505,25 +1595,25 @@
             if (task.deleted) {
                 buttonsHtml = `
                     <button class="edit-task-btn" style="color:var(--success);border-color:var(--success);" onclick="restoreTask('${task.id}')">Restaurar</button>
-                    <button class="edit-task-btn" style="color:var(--danger);border-color:var(--danger);margin-left:5px;" onclick="hardDeleteTask('${task.id}')"><i class="fas fa-trash"></i></button>
+                    <button class="icon-btn danger" onclick="hardDeleteTask('${task.id}')" title="Eliminar Permanentemente"><i class="fas fa-trash"></i></button>
                 `;
             } else if (task.archived) {
                 buttonsHtml = `
-                    <button class="edit-task-btn" style="color:var(--success);border-color:var(--success);margin-right:5px;" onclick="unarchiveTask('${task.id}')">Desarchivar</button>
-                    <button class="edit-task-btn" style="color:var(--danger);border-color:var(--danger);" onclick="softDeleteTask('${task.id}')"><i class="fas fa-trash"></i></button>
+                    <button class="edit-task-btn" style="color:var(--success);border-color:var(--success);" onclick="unarchiveTask('${task.id}')">Desarchivar</button>
+                    <button class="icon-btn danger" onclick="softDeleteTask('${task.id}')" title="Mover a Papelera"><i class="fas fa-trash"></i></button>
                 `;
             } else {
                 buttonsHtml = `
-                    <button class="edit-task-btn" style="color:#94a3b8;border-color:#94a3b8;margin-right:5px;" onclick="archiveTask('${task.id}')" title="Archivar"><i class="fas fa-archive"></i></button>
-                    <button class="edit-task-btn" style="color:var(--danger);border-color:var(--danger);margin-right:5px;" onclick="softDeleteTask('${task.id}')" title="Eliminar"><i class="fas fa-trash"></i></button>
-                    <button class="edit-task-btn" style="color:var(--accent);border-color:var(--accent);margin-right:5px;" onclick="openHistoryModal('${task.id}')" title="Historial"><i class="fas fa-history"></i></button>
+                    <button class="icon-btn archive" onclick="archiveTask('${task.id}')" title="Archivar"><i class="fas fa-archive"></i></button>
+                    <button class="icon-btn danger" onclick="softDeleteTask('${task.id}')" title="Mover a Papelera"><i class="fas fa-trash"></i></button>
+                    <button class="icon-btn history" onclick="openHistoryModal('${task.id}')" title="Historial"><i class="fas fa-history"></i></button>
                     <button class="edit-task-btn" onclick="openEditTaskModal('${task.id}', '${encodeURIComponent(task.title || '')}', '${encodeURIComponent(task.description || '')}')">Editar</button>
                 `;
             }
             existingCard.querySelector('.task-footer').innerHTML = `
                 <span>#${task.id.slice(-4)}</span>
                 <i class="fas fa-align-left"></i>
-                <div style="display:flex;">${buttonsHtml}</div>
+                <div class="task-actions">${buttonsHtml}</div>
             `;
 
             const targetList = document.getElementById(`list-${task.status}`);
@@ -1556,18 +1646,18 @@
         if (task.deleted) {
             buttonsHtml = `
                 <button class="edit-task-btn" style="color:var(--success);border-color:var(--success);" onclick="restoreTask('${task.id}')">Restaurar</button>
-                <button class="edit-task-btn" style="color:var(--danger);border-color:var(--danger);margin-left:5px;" onclick="hardDeleteTask('${task.id}')"><i class="fas fa-trash"></i></button>
+                <button class="icon-btn danger" onclick="hardDeleteTask('${task.id}')" title="Eliminar Permanentemente"><i class="fas fa-trash"></i></button>
             `;
         } else if (task.archived) {
             buttonsHtml = `
-                <button class="edit-task-btn" style="color:var(--success);border-color:var(--success);margin-right:5px;" onclick="unarchiveTask('${task.id}')">Desarchivar</button>
-                <button class="edit-task-btn" style="color:var(--danger);border-color:var(--danger);" onclick="softDeleteTask('${task.id}')"><i class="fas fa-trash"></i></button>
+                <button class="edit-task-btn" style="color:var(--success);border-color:var(--success);" onclick="unarchiveTask('${task.id}')">Desarchivar</button>
+                <button class="icon-btn danger" onclick="softDeleteTask('${task.id}')" title="Mover a Papelera"><i class="fas fa-trash"></i></button>
             `;
         } else {
             buttonsHtml = `
-                <button class="edit-task-btn" style="color:#94a3b8;border-color:#94a3b8;margin-right:5px;" onclick="archiveTask('${task.id}')" title="Archivar"><i class="fas fa-archive"></i></button>
-                <button class="edit-task-btn" style="color:var(--danger);border-color:var(--danger);margin-right:5px;" onclick="softDeleteTask('${task.id}')" title="Eliminar"><i class="fas fa-trash"></i></button>
-                <button class="edit-task-btn" style="color:var(--accent);border-color:var(--accent);margin-right:5px;" onclick="openHistoryModal('${task.id}')" title="Historial"><i class="fas fa-history"></i></button>
+                <button class="icon-btn archive" onclick="archiveTask('${task.id}')" title="Archivar"><i class="fas fa-archive"></i></button>
+                <button class="icon-btn danger" onclick="softDeleteTask('${task.id}')" title="Mover a Papelera"><i class="fas fa-trash"></i></button>
+                <button class="icon-btn history" onclick="openHistoryModal('${task.id}')" title="Historial"><i class="fas fa-history"></i></button>
                 <button class="edit-task-btn" onclick="openEditTaskModal('${task.id}', '${encodeURIComponent(task.title || '')}', '${encodeURIComponent(task.description || '')}')">Editar</button>
             `;
         }
@@ -1579,7 +1669,7 @@
             <div class="task-footer">
                 <span>#${task.id.slice(-4)}</span>
                 <i class="fas fa-align-left"></i>
-                <div style="display:flex;">${buttonsHtml}</div>
+                <div class="task-actions">${buttonsHtml}</div>
             </div>
         `;
         container.appendChild(card);
@@ -1628,17 +1718,25 @@
         }
     }
 
-    async function softDeleteTask(id) {
-        try {
-            const response = await fetch(`/tasks/${id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${jwtToken}` }
-            });
-            if (response.ok) {
-                const deletedTask = await response.json();
-                renderTask(deletedTask);
+    function softDeleteTask(id) {
+        showConfirmModal({
+            title: 'Mover a Papelera',
+            message: '¿Estás seguro de que deseas enviar esta tarea a la papelera?',
+            confirmText: 'Sí, Enviar',
+            type: 'warning',
+            onConfirm: async () => {
+                try {
+                    const response = await fetch(`/tasks/${id}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${jwtToken}` }
+                    });
+                    if (response.ok) {
+                        const deletedTask = await response.json();
+                        renderTask(deletedTask);
+                    }
+                } catch (err) { console.error('Error soft deleting task'); }
             }
-        } catch (err) { console.error('Error soft deleting task'); }
+        });
     }
 
     async function restoreTask(id) {
@@ -1654,34 +1752,49 @@
         } catch (err) { console.error('Error restoring task'); }
     }
 
-    async function hardDeleteTask(id) {
-        if (!confirm('¿Estás seguro de que quieres eliminar esta tarea permanentemente?')) return;
-        try {
-            const response = await fetch(`/tasks/${id}/hard`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${jwtToken}` }
-            });
-            if (response.ok) {
-                const existingCard = document.getElementById(`task-${id}`);
-                if (existingCard) {
-                    existingCard.remove();
-                    updateCounts();
-                }
+    function hardDeleteTask(id) {
+        showConfirmModal({
+            title: 'Eliminar Permanente',
+            message: '¿Estás seguro de que quieres eliminar esta tarea permanentemente?',
+            confirmText: 'Sí, Eliminar',
+            type: 'danger',
+            onConfirm: async () => {
+                try {
+                    const response = await fetch(`/tasks/${id}/hard`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${jwtToken}` }
+                    });
+                    if (response.ok) {
+                        const existingCard = document.getElementById(`task-${id}`);
+                        if (existingCard) {
+                            existingCard.remove();
+                            updateCounts();
+                        }
+                    }
+                } catch (err) { console.error('Error hard deleting task'); }
             }
-        } catch (err) { console.error('Error hard deleting task'); }
+        });
     }
 
-    async function archiveTask(id) {
-        try {
-            const response = await fetch(`/tasks/${id}/archive`, {
-                method: 'PUT',
-                headers: { 'Authorization': `Bearer ${jwtToken}` }
-            });
-            if (response.ok) {
-                const archivedTask = await response.json();
-                renderTask(archivedTask);
+    function archiveTask(id) {
+        showConfirmModal({
+            title: 'Archivar Tarea',
+            message: '¿Estás seguro de que deseas archivar esta tarea? Podrás desarchivarla más tarde en la pestaña de Archivados.',
+            confirmText: 'Sí, Archivar',
+            type: 'info',
+            onConfirm: async () => {
+                try {
+                    const response = await fetch(`/tasks/${id}/archive`, {
+                        method: 'PUT',
+                        headers: { 'Authorization': `Bearer ${jwtToken}` }
+                    });
+                    if (response.ok) {
+                        const archivedTask = await response.json();
+                        renderTask(archivedTask);
+                    }
+                } catch (err) { console.error('Error archiving task'); }
             }
-        } catch (err) { console.error('Error archiving task'); }
+        });
     }
 
     async function unarchiveTask(id) {
@@ -2166,6 +2279,26 @@
             if (document.getElementById('tablerosSection').style.display !== 'none') {
                 cargarTableros(); 
             }
+            if (tableroActual && document.getElementById('boardSection').style.display !== 'none') {
+                try {
+                    const updatedTablero = JSON.parse(event.data);
+                    if (updatedTablero.id === tableroActual.id) {
+                        const claims = parseJwt(token);
+                        const currentUserId = claims.userId;
+                        
+                        if (updatedTablero.propietarioId !== currentUserId && !updatedTablero.miembros.includes(currentUserId)) {
+                            // The current user has been removed from this board
+                            alert("Has sido removido de este tablero.");
+                            showBoard(); // Returns to main dashboard
+                            return;
+                        }
+
+                        // Not removed, simply update the header if member list changed
+                        tableroActual = updatedTablero;
+                        renderBoardMembers(tableroActual);
+                    }
+                } catch(e) {}
+            }
         };
     }
 
@@ -2228,6 +2361,76 @@
         }
     }
 
+    let currentConfirmCallback = null;
+
+    function showConfirmModal({ title, message, confirmText, type = 'danger', onConfirm }) {
+        document.getElementById('confirmModalTitleText').innerText = title || 'Confirmar';
+        document.getElementById('confirmModalMessage').innerText = message;
+        
+        const actionBtn = document.getElementById('confirmModalActionBtn');
+        actionBtn.innerText = confirmText || 'Confirmar';
+        
+        const titleEl = document.getElementById('confirmModalTitle');
+        const iconEl = document.getElementById('confirmModalIcon');
+
+        if (type === 'danger') {
+            titleEl.style.color = 'var(--danger)';
+            actionBtn.style.background = 'var(--danger)';
+            iconEl.className = 'fas fa-exclamation-triangle';
+        } else if (type === 'warning') {
+            titleEl.style.color = '#eab308';
+            actionBtn.style.background = '#eab308';
+            iconEl.className = 'fas fa-exclamation-circle';
+        } else if (type === 'info') {
+            titleEl.style.color = 'var(--primary)';
+            actionBtn.style.background = 'var(--primary)';
+            iconEl.className = 'fas fa-info-circle';
+        }
+        
+        currentConfirmCallback = onConfirm;
+        document.getElementById('globalConfirmModal').style.display = 'flex';
+    }
+
+    function closeGlobalConfirm() {
+        document.getElementById('globalConfirmModal').style.display = 'none';
+        currentConfirmCallback = null;
+    }
+
+    document.getElementById('confirmModalActionBtn').onclick = () => {
+        if (currentConfirmCallback) currentConfirmCallback();
+        closeGlobalConfirm();
+    };
+
+    function confirmRemoveMember(userId, username) {
+        showConfirmModal({
+            title: 'Confirmar Eliminación',
+            message: `¿Estás seguro de que deseas remover a ${username} de este tablero?`,
+            confirmText: 'Sí, Remover',
+            type: 'danger',
+            onConfirm: () => removeMemberFromBoard(userId)
+        });
+    }
+
+    async function removeMemberFromBoard(userId) {
+        if (!tableroActual) return;
+        const token = localStorage.getItem('vb_token');
+        
+        const res = await fetch(`/tableros/${tableroActual.id}/members/${userId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (res.ok) {
+            // Local state update
+            if (tableroActual.miembros) {
+                tableroActual.miembros = tableroActual.miembros.filter(id => id !== userId);
+            }
+            renderBoardMembers(tableroActual);
+        } else {
+            alert("Error o no tienes permisos para remover miembros.");
+        }
+    }
+
     let userCache = {};
 
     async function renderBoardMembers(tablero) {
@@ -2237,13 +2440,16 @@
         const propietarioId = tablero.propietarioId;
         const miembros = tablero.miembros || [];
         
+        const token = localStorage.getItem('vb_token');
+        const claims = token ? parseJwt(token) : {};
+        const isCreator = claims.userId === propietarioId;
+        
         const allIds = [propietarioId, ...miembros].filter(id => id);
         
         const missingIds = allIds.filter(id => !userCache[id]);
         
         if (missingIds.length > 0) {
             try {
-                const token = localStorage.getItem('vb_token');
                 const res = await fetch('/users/batch', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -2266,7 +2472,7 @@
             const prop = userCache[propietarioId];
             const initial = (prop.username || '?')[0].toUpperCase();
             html += `
-                <div class="avatar-circle">
+                <div class="avatar-circle" onclick="toggleMemberTooltip(event, this)">
                     ${initial}
                     <div class="member-tooltip">
                         <div class="tooltip-name">${escapeHtml(prop.username)}</div>
@@ -2284,12 +2490,13 @@
                 const u = userCache[mId];
                 const initial = (u.username || '?')[0].toUpperCase();
                 html += `
-                    <div class="avatar-circle">
+                    <div class="avatar-circle" onclick="toggleMemberTooltip(event, this)">
                         ${initial}
                         <div class="member-tooltip">
                             <div class="tooltip-name">${escapeHtml(u.username)}</div>
                             <div class="tooltip-email">${escapeHtml(u.email || '—')}</div>
                             <div class="tooltip-role"><i class="fas fa-user"></i> Miembro</div>
+                            ${isCreator ? `<button class="btn-small" style="background:var(--danger); color:white; border:none; margin-top:10px; width:100%; display:flex; justify-content:center; align-items:center; gap:5px;" onclick="confirmRemoveMember('${u.id}', '${escapeHtml(u.username)}')"><i class="fas fa-times"></i> Remover</button>` : ''}
                         </div>
                     </div>`;
             } else {
@@ -2304,6 +2511,34 @@
         
         container.innerHTML = html;
     }
+
+    // Toggle tooltip logic
+    function toggleMemberTooltip(event, element) {
+        event.stopPropagation(); // Prevent document click from immediately closing it
+        
+        // Close all other active tooltips
+        document.querySelectorAll('.avatar-circle.active').forEach(el => {
+            if (el !== element) {
+                el.classList.remove('active');
+            }
+        });
+        
+        // Toggle current
+        element.classList.toggle('active');
+    }
+
+    // Global click listener to close tooltips when clicking outside
+    document.addEventListener('click', function(event) {
+        // If clicking inside a tooltip itself, do nothing
+        if (event.target.closest('.member-tooltip')) {
+            return;
+        }
+        
+        // Otherwise, close all tooltips
+        document.querySelectorAll('.avatar-circle.active').forEach(el => {
+            el.classList.remove('active');
+        });
+    });
 
 </script>
 </body>

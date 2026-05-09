@@ -51,6 +51,12 @@ public class TableroController {
                 .flatMap(currentUserId -> tableroService.addMember(id, userIdToAdd, currentUserId));
     }
 
+    @DeleteMapping("/{id}/members/{userIdToRemove}")
+    public Mono<Tablero> removeMember(@PathVariable String id, @PathVariable String userIdToRemove) {
+        return obtenerUserId()
+                .flatMap(currentUserId -> tableroService.removeMember(id, userIdToRemove, currentUserId));
+    }
+
     @GetMapping(value = "/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<Tablero> getEvents() {
         return tableroService.getTableroEvents();
