@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Activación de Cuenta - VelocityBoard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --text-color: #f8fafc;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --accent: #8b5cf6;
+            --danger: #ef4444;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --border: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle at top right, #1e1b4b, #0f172a);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        h2 { font-family: 'Outfit', sans-serif; }
+
+        .auth-container {
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(12px);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .auth-container h2 {
+            margin-top: 0;
+            font-weight: 800;
+            font-size: 2rem;
+            background: -webkit-linear-gradient(45deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 20px;
+        }
+
+        .status-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+
+        .status-icon.loading { color: var(--primary); }
+        .status-icon.success { color: var(--success); }
+        .status-icon.warning { color: var(--warning); }
+        .status-icon.error { color: var(--danger); }
+
+        .message {
+            font-size: 1.1rem;
+            margin-bottom: 30px;
+            line-height: 1.5;
+        }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            font-family: inherit;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--border);
+            margin-top: 15px;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="auth-container" id="activationContainer">
+        <h2>VelocityBoard</h2>
+        <div id="statusIcon" class="status-icon loading">
+            <i class="fas fa-circle-notch fa-spin"></i>
+        </div>
+        <div id="message" class="message">Verificando tu cuenta...</div>
+        <div id="actionContainer" style="display: none;">
+            <button id="actionBtn" onclick="window.location.href='/index.html'">Ir al Login</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+            const statusIcon = document.getElementById('statusIcon');
+            const messageEl = document.getElementById('message');
+            const actionContainer = document.getElementById('actionContainer');
+            const actionBtn = document.getElementById('actionBtn');
+
+            if (!token) {
+                showError("No se proporcionó un token de activación.");
+                return;
+            }
+
+            fetch(`/auth/activate?token=${token}`)
+                .then(async (response) => {
+                    if (response.ok) {
+                        showSuccess("Tu cuenta ha sido activada exitosamente.");
+                    } else {
+                        const errText = await response.text();
+                        if (response.status === 400 && errText === "Expired") {
+                            showWarning("El enlace de activación ha expirado.");
+                        } else {
+                            showError(errText || "Error al activar la cuenta.");
+                        }
+                    }
+                })
+                .catch(error => {
+                    showError("Error de conexión con el servidor.");
+                });
+
+            function showSuccess(msg) {
+                statusIcon.className = 'status-icon success';
+                statusIcon.innerHTML = '<i class="fas fa-check-circle"></i>';
+                messageEl.textContent = msg;
+                actionContainer.style.display = 'block';
+                actionBtn.textContent = 'Ir al Login';
+                actionBtn.className = '';
+                actionBtn.onclick = () => window.location.href = '/index.html';
+            }
+
+            function showWarning(msg) {
+                statusIcon.className = 'status-icon warning';
+                statusIcon.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+                messageEl.textContent = msg;
+                actionContainer.style.display = 'block';
+                actionBtn.textContent = 'Reenviar enlace de activación';
+                actionBtn.className = 'btn-secondary';
+                actionBtn.onclick = () => {
+                    alert("Funcionalidad para reenviar correo en desarrollo.");
+                    window.location.href = '/index.html';
+                };
+            }
+
+            function showError(msg) {
+                statusIcon.className = 'status-icon error';
+                statusIcon.innerHTML = '<i class="fas fa-times-circle"></i>';
+                messageEl.textContent = msg;
+                actionContainer.style.display = 'block';
+                actionBtn.textContent = 'Volver al Inicio';
+                actionBtn.className = 'btn-secondary';
+                actionBtn.onclick = () => window.location.href = '/index.html';
+            }
+        });
+    </script>
+</body>
+</html>

@@ -30,6 +30,9 @@ public class User implements UserDetails {
     @Builder.Default
     private Role role = Role.ROLE_USER;
 
+    @Builder.Default
+    private boolean isActive = false;
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority(role.name()));

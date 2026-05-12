@@ -11,6 +11,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -25,10 +27,23 @@ public class AuthController {
     private final JwtUtil jwtUtil;
     private final PasswordEncoder passwordEncoder;
 
+    @GetMapping("/activate")
+    public Mono<ResponseEntity<?>> activateAccount(@RequestParam String token) {
+        return userService.activateUser(token)
+                .<ResponseEntity<?>>then(Mono.just(ResponseEntity.ok().body("Cuenta activada exitosamente.")))
+                .onErrorResume(IllegalArgumentException.class, e -> {
+                    if ("Expired token".equals(e.getMessage())) {
+                        return Mono.just(ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Expired"));
+                    }
+                    return Mono.just(ResponseEntity.badRequest().body(e.getMessage()));
+                });
+    }
+
     @PostMapping("/login")
     public Mono<ResponseEntity<AuthResponse>> login(@RequestBody AuthRequest request) {
         return userService.findByUsername(request.getUsername())
                 .filter(user -> passwordEncoder.matches(request.getPassword(), user.getPassword()))
+                .filter(User::isActive)
                 .map(user -> ResponseEntity.ok(new AuthResponse(jwtUtil.generateToken(user))))
                 .switchIfEmpty(Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()));
     }
@@ -45,7 +60,7 @@ public class AuthController {
         User user = builder.build();
 
         return userService.registerUser(user)
-                .<ResponseEntity<?>>map(savedUser -> ResponseEntity.status(HttpStatus.CREATED).body(new AuthResponse(jwtUtil.generateToken(savedUser))))
+                .<ResponseEntity<?>>map(savedUser -> ResponseEntity.status(HttpStatus.CREATED).body("User registered successfully. Please check your email to activate your account."))
                 .onErrorResume(IllegalArgumentException.class, e -> 
                         Mono.just(ResponseEntity.badRequest().body(e.getMessage())));
     }
