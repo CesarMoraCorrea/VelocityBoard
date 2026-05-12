@@ -8,4 +8,5 @@ import reactor.core.publisher.Mono;
 @Repository
 public interface VerificationTokenRepository extends ReactiveMongoRepository<VerificationToken, String> {
     Mono<VerificationToken> findByToken(String token);
+    Mono<Void> deleteByUserId(String userId);
 }
