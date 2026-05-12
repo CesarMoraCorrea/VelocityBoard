@@ -1127,15 +1127,25 @@
             });
 
             if (res.ok) {
-                const data = await res.json();
-                jwtToken = data.token;
-                localStorage.setItem('vb_token', jwtToken);
-                showBoard();
+                if (currentMode === 'login') {
+                    const data = await res.json();
+                    jwtToken = data.token;
+                    localStorage.setItem('vb_token', jwtToken);
+                    showBoard();
+                } else {
+                    const msg = await res.text();
+                    document.getElementById('authError').style.color = 'var(--success)';
+                    document.getElementById('authError').innerText = msg;
+                    // Switch back to login after successful registration
+                    setTimeout(() => switchAuthTab('login'), 3000);
+                }
             } else {
                 const err = await res.text();
-                document.getElementById('authError').innerText = err || 'Credenciales inválidas';
+                document.getElementById('authError').style.color = 'var(--danger)';
+                document.getElementById('authError').innerText = err || 'Error en la solicitud';
             }
         } catch (error) {
+            document.getElementById('authError').style.color = 'var(--danger)';
             document.getElementById('authError').innerText = 'Error de conexión con el tablero.';
         }
         document.getElementById('authSubmitBtn').innerText = currentMode === 'login' ? 'Entrar al Tablero' : 'Crear mi Cuenta';

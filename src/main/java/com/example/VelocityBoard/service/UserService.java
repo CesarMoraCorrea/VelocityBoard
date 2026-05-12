@@ -13,13 +13,18 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
-
+import java.util.UUID;
+import java.time.LocalDateTime;
+import com.example.VelocityBoard.model.VerificationToken;
+import com.example.VelocityBoard.repository.VerificationTokenRepository;
 @Service
 @RequiredArgsConstructor
 public class UserService implements ListUsersUseCase, UpdateUserUseCase {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final VerificationTokenRepository tokenRepository;
+    private final EmailService emailService;
 
     public Mono<User> findByUsername(String username) {
         return userRepository.findByUsername(username);
@@ -99,7 +104,42 @@ public class UserService implements ListUsersUseCase, UpdateUserUseCase {
                         return Mono.error(new IllegalArgumentException("Email already exists"));
                     }
                     user.setPassword(passwordEncoder.encode(user.getPassword()));
+                    user.setActive(false); // Make sure it's inactive
                     return userRepository.save(user);
+                })
+                .flatMap(savedUser -> {
+                    String tokenStr = UUID.randomUUID().toString();
+                    VerificationToken token = VerificationToken.builder()
+                            .token(tokenStr)
+                            .userId(savedUser.getId())
+                            .expiryDate(LocalDateTime.now().plusMinutes(30))
+                            .build();
+                            
+                    String activationLink = "http://localhost:8081/activate.html?token=" + tokenStr;
+                    String emailHtml = "<h1>Bienvenido a VelocityBoard</h1>"
+                            + "<p>Por favor, haz clic en el siguiente enlace para activar tu cuenta:</p>"
+                            + "<a href=\"" + activationLink + "\">Activar Cuenta</a>";
+
+                    return tokenRepository.save(token)
+                            .flatMap(t -> emailService.sendHtmlEmail(savedUser.getEmail(), "Activa tu cuenta", emailHtml))
+                            .thenReturn(savedUser);
+                });
+    }
+
+    public Mono<Void> activateUser(String token) {
+        return tokenRepository.findByToken(token)
+                .switchIfEmpty(Mono.error(new IllegalArgumentException("Invalid token")))
+                .flatMap(verificationToken -> {
+                    if (verificationToken.getExpiryDate().isBefore(LocalDateTime.now())) {
+                        return tokenRepository.delete(verificationToken)
+                                .then(Mono.error(new IllegalArgumentException("Expired token")));
+                    }
+                    return userRepository.findById(verificationToken.getUserId())
+                            .flatMap(user -> {
+                                user.setActive(true);
+                                return userRepository.save(user);
+                            })
+                            .then(tokenRepository.delete(verificationToken));
                 });
     }
 }
