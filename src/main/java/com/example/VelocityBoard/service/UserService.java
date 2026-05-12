@@ -92,21 +92,27 @@ public class UserService implements ListUsersUseCase, UpdateUserUseCase {
     }
 
     public Mono<User> registerUser(User user) {
-        return userRepository.existsByUsername(user.getUsername())
-                .flatMap(exists -> {
-                    if (exists) {
+        return userRepository.findByUsername(user.getUsername())
+                .flatMap(existing -> {
+                    if (existing.isActive()) {
                         return Mono.error(new IllegalArgumentException("Username already exists"));
                     }
-                    return userRepository.existsByEmail(user.getEmail());
+                    return tokenRepository.deleteByUserId(existing.getId())
+                            .then(userRepository.delete(existing));
                 })
-                .flatMap(exists -> {
-                    if (exists) {
+                .then(userRepository.findByEmail(user.getEmail()))
+                .flatMap(existing -> {
+                    if (existing.isActive()) {
                         return Mono.error(new IllegalArgumentException("Email already exists"));
                     }
+                    return tokenRepository.deleteByUserId(existing.getId())
+                            .then(userRepository.delete(existing));
+                })
+                .then(Mono.defer(() -> {
                     user.setPassword(passwordEncoder.encode(user.getPassword()));
                     user.setActive(false); // Make sure it's inactive
                     return userRepository.save(user);
-                })
+                }))
                 .flatMap(savedUser -> {
                     String tokenStr = UUID.randomUUID().toString();
                     VerificationToken token = VerificationToken.builder()
@@ -121,7 +127,12 @@ public class UserService implements ListUsersUseCase, UpdateUserUseCase {
                             + "<a href=\"" + activationLink + "\">Activar Cuenta</a>";
 
                     return tokenRepository.save(token)
-                            .flatMap(t -> emailService.sendHtmlEmail(savedUser.getEmail(), "Activa tu cuenta", emailHtml))
+                            .flatMap(t -> emailService.sendHtmlEmail(savedUser.getEmail(), "Activa tu cuenta", emailHtml)
+                                    .onErrorResume(e -> tokenRepository.delete(t)
+                                            .then(userRepository.delete(savedUser))
+                                            .then(Mono.error(new IllegalArgumentException("Error enviando el correo de activación. Inténtalo de nuevo.")))
+                                    )
+                            )
                             .thenReturn(savedUser);
                 });
     }

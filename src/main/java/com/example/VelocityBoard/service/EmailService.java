@@ -15,11 +15,15 @@ public class EmailService {
 
     private final JavaMailSender javaMailSender;
 
+    @org.springframework.beans.factory.annotation.Value("${MAIL_FROM_ADDRESS:velocityboard@gmail.com}")
+    private String fromAddress;
+
     public Mono<Void> sendHtmlEmail(String to, String subject, String htmlBody) {
         return Mono.fromRunnable(() -> {
             try {
                 MimeMessage message = javaMailSender.createMimeMessage();
                 MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+                helper.setFrom(fromAddress);
                 helper.setTo(to);
                 helper.setSubject(subject);
                 helper.setText(htmlBody, true);
