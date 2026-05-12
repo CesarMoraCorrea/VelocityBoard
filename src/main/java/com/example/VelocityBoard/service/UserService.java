@@ -91,6 +91,9 @@ public class UserService implements ListUsersUseCase, UpdateUserUseCase {
                 .map(UserResponse::fromUser);
     }
 
+    @org.springframework.beans.factory.annotation.Value("${APP_URL:http://localhost:8081}")
+    private String appUrl;
+
     public Mono<User> registerUser(User user) {
         return userRepository.findByUsername(user.getUsername())
                 .flatMap(existing -> {
@@ -121,17 +124,23 @@ public class UserService implements ListUsersUseCase, UpdateUserUseCase {
                             .expiryDate(LocalDateTime.now().plusMinutes(30))
                             .build();
                             
-                    String activationLink = "http://localhost:8081/activate.html?token=" + tokenStr;
+                    String activationLink = appUrl + "/activate.html?token=" + tokenStr;
                     String emailHtml = "<h1>Bienvenido a VelocityBoard</h1>"
                             + "<p>Por favor, haz clic en el siguiente enlace para activar tu cuenta:</p>"
                             + "<a href=\"" + activationLink + "\">Activar Cuenta</a>";
 
                     return tokenRepository.save(token)
                             .flatMap(t -> emailService.sendHtmlEmail(savedUser.getEmail(), "Activa tu cuenta", emailHtml)
-                                    .onErrorResume(e -> tokenRepository.delete(t)
-                                            .then(userRepository.delete(savedUser))
-                                            .then(Mono.error(new IllegalArgumentException("Error enviando el correo de activación. Inténtalo de nuevo.")))
-                                    )
+                                    .onErrorResume(e -> {
+                                        System.err.println("Email Error: " + e.getMessage());
+                                        if (e.getCause() != null) {
+                                            System.err.println("Cause: " + e.getCause().getMessage());
+                                        }
+                                        e.printStackTrace();
+                                        return tokenRepository.delete(t)
+                                                .then(userRepository.delete(savedUser))
+                                                .then(Mono.error(new IllegalArgumentException("Error enviando el correo: " + (e.getCause() != null ? e.getCause().getMessage() : e.getMessage()))));
+                                    })
                             )
                             .thenReturn(savedUser);
                 });
