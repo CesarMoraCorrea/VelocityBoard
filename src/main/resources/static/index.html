@@ -417,29 +417,41 @@
         .users-container.visible { display: flex; }
         .users-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
         .users-header h2 { margin: 0; font-weight: 800; font-size: 1.5rem; }
-        .users-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+        .users-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px; }
         .user-card {
             background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px;
-            padding: 20px; display: flex; flex-direction: column; gap: 12px;
+            padding: 24px; display: flex; flex-direction: column; gap: 16px;
             animation: fadeIn 0.3s ease-out; transition: border-color 0.2s;
         }
         .user-card:hover { border-color: rgba(255,255,255,0.3); }
-        .user-card-header { display: flex; align-items: center; gap: 14px; }
+        .user-card-header { display: flex; align-items: center; gap: 16px; }
         .user-avatar {
             width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0;
             background: linear-gradient(135deg, var(--primary), var(--accent));
             display: flex; align-items: center; justify-content: center;
             font-weight: 800; font-size: 1.2rem; color: white;
         }
-        .user-card-name { font-weight: 700; font-size: 0.95rem; }
-        .user-card-email { font-size: 0.8rem; color: #94a3b8; margin-top: 2px; }
+        .user-card-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+        .user-card-name-row { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+        .user-card-name { font-weight: 700; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #f8fafc; }
+        .user-card-email { font-size: 0.85rem; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .role-badge {
-            display: inline-block; padding: 4px 10px; border-radius: 20px;
-            font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+            display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px;
+            font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+            flex-shrink: 0; gap: 4px;
         }
-        .role-badge.admin { background: rgba(139,92,246,0.2); color: #a78bfa; border: 1px solid rgba(139,92,246,0.3); }
-        .role-badge.user  { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.25); }
-        .user-id { font-size: 0.72rem; color: #475569; font-family: monospace; }
+        .role-badge.admin { background: rgba(139,92,246,0.15); color: #c084fc; border: 1px solid rgba(139,92,246,0.3); }
+        .role-badge.user  { background: rgba(59,130,246,0.1); color: #60a5fa; border: 1px solid rgba(59,130,246,0.2); }
+        .user-card-actions { display: flex; gap: 12px; margin-top: 4px; }
+        .user-action-btn {
+            flex: 1; padding: 8px 0; font-size: 0.85rem; font-weight: 500; border-radius: 8px;
+            background: transparent; border: 1px solid rgba(255,255,255,0.1); color: #cbd5e1;
+            transition: all 0.2s; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px;
+        }
+        .user-action-btn:hover { background: rgba(255,255,255,0.05); color: white; border-color: rgba(255,255,255,0.2); transform: translateY(-1px); box-shadow: none; }
+        .user-action-btn.danger { color: #f87171; border-color: rgba(248,113,113,0.3); }
+        .user-action-btn.danger:hover { background: rgba(248,113,113,0.1); color: #fca5a5; border-color: rgba(248,113,113,0.5); }
+        .user-card-footer { padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); font-family: monospace; font-size: 0.75rem; color: #64748b; }
         .users-loading { text-align: center; color: #64748b; padding: 50px; font-size: 1rem; }
         .reload-btn {
             width: auto; padding: 9px 18px; font-size: 0.85rem;
@@ -1946,6 +1958,16 @@
                 throw new Error(err.message || `Error al actualizar: ${res.status}`);
             }
             return res.json();
+        },
+        async delete(id) {
+            const res = await fetch(`/api/admin/users/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${jwtToken}` }
+            });
+            if (!res.ok && res.status !== 204) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.message || `Error al eliminar: ${res.status}`);
+            }
         }
     };
 
@@ -1969,28 +1991,52 @@
     function renderUserCard(user) {
         const card = document.createElement('div');
         card.className = 'user-card';
+        card.id = `user-card-${user.id}`;
         const initial = (user.username || '?')[0].toUpperCase();
         const isAdmin = user.role === 'ROLE_ADMIN';
         card.innerHTML = `
             <div class="user-card-header">
                 <div class="user-avatar">${initial}</div>
-                <div>
-                    <div class="user-card-name">${user.username}</div>
-                    <div class="user-card-email">${user.email || '—'}</div>
+                <div class="user-card-info">
+                    <div class="user-card-name-row">
+                        <div class="user-card-name" title="${user.username}">${user.username}</div>
+                        <span class="role-badge ${isAdmin ? 'admin' : 'user'}">
+                            <i class="fas ${isAdmin ? 'fa-shield-alt' : 'fa-user'}"></i>
+                            ${isAdmin ? 'Admin' : 'Usuario'}
+                        </span>
+                    </div>
+                    <div class="user-card-email" title="${user.email || 'Sin email'}">${user.email || '—'}</div>
                 </div>
             </div>
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span class="role-badge ${isAdmin ? 'admin' : 'user'}">
-                    <i class="fas ${isAdmin ? 'fa-shield-alt' : 'fa-user'}"></i>
-                    ${isAdmin ? 'Admin' : 'Usuario'}
-                </span>
-                <button class="edit-btn" onclick="openEditModal('${user.id}','${user.username}','${user.email || ''}','${user.role}')">
+            <div class="user-card-actions">
+                <button class="user-action-btn" onclick="openEditModal('${user.id}','${user.username}','${user.email || ''}','${user.role}')">
                     <i class="fas fa-pen"></i> Editar
                 </button>
+                <button class="user-action-btn danger" onclick="deleteUser('${user.id}', '${user.username}')">
+                    <i class="fas fa-trash"></i> Eliminar
+                </button>
             </div>
-            <div class="user-id">ID: ${user.id}</div>
+            <div class="user-card-footer">ID: ${user.id}</div>
         `;
         return card;
+    }
+
+    function deleteUser(id, username) {
+        showConfirmModal({
+            title: 'Eliminar Usuario',
+            message: `¿Estás seguro de que deseas eliminar permanentemente al usuario ${username} del sistema?`,
+            confirmText: 'Sí, Eliminar',
+            type: 'danger',
+            onConfirm: async () => {
+                try {
+                    await usersApiAdapter.delete(id);
+                    const card = document.getElementById(`user-card-${id}`);
+                    if(card) card.remove();
+                } catch (err) {
+                    alert('Error al eliminar usuario: ' + err.message);
+                }
+            }
+        });
     }
 
     // ======== HEXAGONAL: Adaptador entrada UI — Controlador modal edición ========

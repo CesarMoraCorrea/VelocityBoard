@@ -11,4 +11,5 @@ public interface TableroRepository extends ReactiveMongoRepository<Tablero, Stri
 
     @Query("{ '$or': [ { 'propietarioId': ?0 }, { 'miembros': ?0 } ], 'eliminado': false }")
     Flux<Tablero> findByPropietarioIdAndEliminadoFalse(String propietarioId);
+    reactor.core.publisher.Mono<Void> deleteByPropietarioId(String propietarioId);
 }
