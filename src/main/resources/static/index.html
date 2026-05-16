@@ -1133,19 +1133,18 @@
                 msgContainer.innerHTML = '<i class="fas fa-check-circle"></i> ¡Tu cuenta ha sido activada! Ya puedes ingresar.';
                 switchAuthTab('login');
             } else {
-                const errorText = await res.text();
-                msgContainer.style.background = 'rgba(239, 68, 68, 0.15)';
-                msgContainer.style.color = 'var(--danger)';
-                if (errorText === 'Expired') {
-                    msgContainer.innerHTML = '<i class="fas fa-times-circle"></i> Tu enlace ha expirado. <br><a href="#" onclick="switchAuthTab(\'register\')" style="color:var(--danger); text-decoration:underline;">Reenviar enlace (Regístrate de nuevo)</a>';
-                } else {
-                    msgContainer.innerHTML = '<i class="fas fa-times-circle"></i> El enlace es inválido o ya fue usado.';
-                }
+                // Warning state for pre-fetched or already used tokens
+                msgContainer.style.background = 'rgba(245, 158, 11, 0.15)'; // Orange background
+                msgContainer.style.color = '#f59e0b'; // Orange text
+                msgContainer.innerHTML = '<i class="fas fa-exclamation-triangle"></i> ⚠️ El enlace ya fue usado o ha expirado. Si acabas de crear tu cuenta, es probable que ya esté activa. ¡Intenta ingresar!';
+                switchAuthTab('login');
             }
         } catch (e) {
-            msgContainer.style.background = 'rgba(239, 68, 68, 0.15)';
-            msgContainer.style.color = 'var(--danger)';
-            msgContainer.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error al conectar con el servidor.';
+            // Treat network errors similarly gracefully since the account might be active
+            msgContainer.style.background = 'rgba(245, 158, 11, 0.15)';
+            msgContainer.style.color = '#f59e0b';
+            msgContainer.innerHTML = '<i class="fas fa-exclamation-triangle"></i> ⚠️ El enlace ya fue usado o ha expirado. Si acabas de crear tu cuenta, es probable que ya esté activa. ¡Intenta ingresar!';
+            switchAuthTab('login');
         }
     }
 
