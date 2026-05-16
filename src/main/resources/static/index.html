@@ -752,6 +752,25 @@
                 <div class="tab" onclick="switchAuthTab('register')">Nuevo</div>
             </div>
 
+            <form id="authForm" onsubmit="handleAuth(event)">
+                <div class="input-group">
+                    <i class="fas fa-user"></i>
+                    <input type="text" id="username" placeholder="Usuario" required autocomplete="off">
+                </div>
+                <div class="input-group" id="emailGroup" style="display: none;">
+                    <i class="fas fa-envelope"></i>
+                    <input type="email" id="email" placeholder="Correo electrónico">
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="password" placeholder="Contraseña" required>
+                </div>
+                <button type="submit" id="authSubmitBtn">Entrar al Tablero</button>
+            </form>
+            <div id="authError"></div>
+        </div>
+    </div>
+
     <!-- TABLEROS VIEW (pantalla intermedia tras login) -->
     <div id="tablerosSection">
         <div class="tableros-header-bar">
