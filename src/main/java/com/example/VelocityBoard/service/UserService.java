@@ -93,7 +93,7 @@ public class UserService implements ListUsersUseCase, UpdateUserUseCase {
                 .map(UserResponse::fromUser);
     }
 
-    @org.springframework.beans.factory.annotation.Value("${APP_URL:http://localhost:8081}")
+    @org.springframework.beans.factory.annotation.Value("${FRONTEND_URL:https://www.velocity-board.com}")
     private String appUrl;
 
     public Mono<User> registerUser(User user) {
@@ -130,7 +130,7 @@ public class UserService implements ListUsersUseCase, UpdateUserUseCase {
                             .expiryDate(LocalDateTime.now().plusMinutes(30))
                             .build();
                             
-                    String activationLink = appUrl + "/activate.html?token=" + tokenStr;
+                    String activationLink = appUrl + "/activate?token=" + tokenStr;
                     String emailHtml = "<h1>Bienvenido a VelocityBoard</h1>"
                             + "<p>Por favor, haz clic en el siguiente enlace para activar tu cuenta:</p>"
                             + "<a href=\"" + activationLink + "\">Activar Cuenta</a>";

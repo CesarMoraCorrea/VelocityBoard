@@ -1,36 +1,36 @@
 package com.example.VelocityBoard.service;
 
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.MimeMessage;
-import lombok.RequiredArgsConstructor;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
+import com.resend.Resend;
+import com.resend.core.exception.ResendException;
+import com.resend.services.emails.model.CreateEmailOptions;
+import com.resend.services.emails.model.CreateEmailResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 @Service
-@RequiredArgsConstructor
 public class EmailService {
 
-    private final JavaMailSender javaMailSender;
+    private final Resend resend;
 
-    @org.springframework.beans.factory.annotation.Value("${MAIL_FROM_ADDRESS:velocityboard@gmail.com}")
-    private String fromAddress;
+    public EmailService(@Value("${RESEND_API_KEY}") String apiKey) {
+        this.resend = new Resend(apiKey);
+    }
 
-    public Mono<Void> sendHtmlEmail(String to, String subject, String htmlBody) {
-        return Mono.fromRunnable(() -> {
+    public Mono<CreateEmailResponse> sendHtmlEmail(String to, String subject, String htmlBody) {
+        return Mono.fromCallable(() -> {
+            CreateEmailOptions params = CreateEmailOptions.builder()
+                    .from("VelocityBoard <no-reply@velocity-board.com>")
+                    .to(to)
+                    .subject(subject)
+                    .html(htmlBody)
+                    .build();
             try {
-                MimeMessage message = javaMailSender.createMimeMessage();
-                MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-                helper.setFrom(fromAddress);
-                helper.setTo(to);
-                helper.setSubject(subject);
-                helper.setText(htmlBody, true);
-                javaMailSender.send(message);
-            } catch (MessagingException e) {
-                throw new RuntimeException("Error sending email", e);
+                return resend.emails().send(params);
+            } catch (ResendException e) {
+                throw new RuntimeException("Error sending email via Resend", e);
             }
-        }).subscribeOn(Schedulers.boundedElastic()).then();
+        }).subscribeOn(Schedulers.boundedElastic());
     }
 }
