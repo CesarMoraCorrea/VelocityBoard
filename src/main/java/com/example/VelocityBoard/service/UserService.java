@@ -130,7 +130,7 @@ public class UserService implements ListUsersUseCase, UpdateUserUseCase {
                             .expiryDate(LocalDateTime.now().plusMinutes(30))
                             .build();
                             
-                    String activationLink = appUrl + "/activate?token=" + tokenStr;
+                    String activationLink = appUrl + "/index.html?activationToken=" + tokenStr;
                     String emailHtml = "<h1>Bienvenido a VelocityBoard</h1>"
                             + "<p>Por favor, haz clic en el siguiente enlace para activar tu cuenta:</p>"
                             + "<a href=\"" + activationLink + "\">Activar Cuenta</a>";
