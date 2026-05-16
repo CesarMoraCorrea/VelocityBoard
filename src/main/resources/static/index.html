@@ -746,40 +746,11 @@
     <div id="authSection">
         <div class="auth-container">
             <h2>VelocityBoard</h2>
+            <div id="activationMessageContainer" style="display: none; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center; font-weight: bold;"></div>
             <div class="tabs">
                 <div class="tab active" onclick="switchAuthTab('login')">Ingresar</div>
                 <div class="tab" onclick="switchAuthTab('register')">Nuevo</div>
             </div>
-
-            <form id="authForm" onsubmit="handleAuth(event)">
-                <div class="input-group">
-                    <i class="fas fa-user"></i>
-                    <input type="text" id="username" placeholder="Usuario" required autocomplete="off">
-                </div>
-                <div class="input-group" id="emailGroup" style="display: none;">
-                    <i class="fas fa-envelope"></i>
-                    <input type="email" id="email" placeholder="Correo electrónico">
-                </div>
-                <div class="input-group">
-                    <i class="fas fa-lock"></i>
-                    <input type="password" id="password" placeholder="Contraseña" required>
-                </div>
-                <button type="submit" id="authSubmitBtn">Entrar al Tablero</button>
-            </form>
-            <div id="authError"></div>
-        </div>
-    </div>
-
-    <!-- ACTIVATION VIEW -->
-    <div id="activationSection" style="display: none; justify-content: center; align-items: center; height: 100vh;">
-        <div class="auth-container">
-            <h2 id="activationTitle">Verificando...</h2>
-            <div id="activationMessage" style="color: #cbd5e1; margin-bottom: 20px;">
-                <i class="fas fa-spinner fa-spin fa-2x"></i>
-            </div>
-            <button id="activationBtn" onclick="window.location.href='/'" style="display: none;">Ir al Login</button>
-        </div>
-    </div>
 
     <!-- TABLEROS VIEW (pantalla intermedia tras login) -->
     <div id="tablerosSection">
@@ -1114,62 +1085,48 @@
     // Automatically check for existing session or activation route
     window.onload = () => {
         const urlParams = new URLSearchParams(window.location.search);
-        const path = window.location.pathname;
         
-        if (path === '/activate' && urlParams.has('token')) {
-            handleActivation(urlParams.get('token'));
-            return;
-        }
-
-        const storedToken = localStorage.getItem('vb_token');
-        if(storedToken) {
-            jwtToken = storedToken;
-            showBoard();
+        if (urlParams.has('activationToken')) {
+            handleActivation(urlParams.get('activationToken'));
+            // Remove token from URL to clean it up
+            window.history.replaceState({}, document.title, window.location.pathname);
+        } else {
+            const storedToken = localStorage.getItem('vb_token');
+            if(storedToken) {
+                jwtToken = storedToken;
+                showBoard();
+            }
         }
     };
 
     async function handleActivation(token) {
-        document.getElementById('authSection').style.display = 'none';
-        document.getElementById('boardSection').style.display = 'none';
-        document.getElementById('tablerosSection').style.display = 'none';
-        document.getElementById('activationSection').style.display = 'flex';
+        const msgContainer = document.getElementById('activationMessageContainer');
+        msgContainer.style.display = 'block';
+        msgContainer.style.background = 'rgba(255, 255, 255, 0.1)';
+        msgContainer.style.color = '#cbd5e1';
+        msgContainer.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verificando cuenta...';
 
         try {
             const res = await fetch(`/auth/activate?token=${token}`);
             if (res.ok) {
-                document.getElementById('activationTitle').innerText = '¡Cuenta Activada!';
-                document.getElementById('activationTitle').style.color = 'var(--success)';
-                document.getElementById('activationMessage').innerHTML = '<i class="fas fa-check-circle fa-3x" style="color: var(--success); margin-bottom:15px;"></i><br>Tu cuenta ha sido activada exitosamente.';
-                const btn = document.getElementById('activationBtn');
-                btn.style.display = 'block';
-                btn.innerText = 'Ir al Login';
-                btn.onclick = () => window.location.href = '/';
+                msgContainer.style.background = 'rgba(16, 185, 129, 0.15)';
+                msgContainer.style.color = 'var(--success)';
+                msgContainer.innerHTML = '<i class="fas fa-check-circle"></i> ¡Tu cuenta ha sido activada! Ya puedes ingresar.';
+                switchAuthTab('login');
             } else {
                 const errorText = await res.text();
-                document.getElementById('activationTitle').innerText = 'Enlace Inválido';
-                document.getElementById('activationTitle').style.color = 'var(--danger)';
-                
-                const btn = document.getElementById('activationBtn');
-                btn.style.display = 'block';
-                
+                msgContainer.style.background = 'rgba(239, 68, 68, 0.15)';
+                msgContainer.style.color = 'var(--danger)';
                 if (errorText === 'Expired') {
-                    document.getElementById('activationMessage').innerHTML = '<i class="fas fa-times-circle fa-3x" style="color: var(--danger); margin-bottom:15px;"></i><br>Tu enlace de activación ha expirado.';
-                    btn.innerText = 'Reenviar enlace';
-                    btn.onclick = () => window.location.href = '/'; // Or redirect to a resend page if it existed
+                    msgContainer.innerHTML = '<i class="fas fa-times-circle"></i> Tu enlace ha expirado. <br><a href="#" onclick="switchAuthTab(\'register\')" style="color:var(--danger); text-decoration:underline;">Reenviar enlace (Regístrate de nuevo)</a>';
                 } else {
-                    document.getElementById('activationMessage').innerHTML = `<i class="fas fa-times-circle fa-3x" style="color: var(--danger); margin-bottom:15px;"></i><br>El enlace no es válido o ya fue usado.`;
-                    btn.innerText = 'Volver al Inicio';
-                    btn.onclick = () => window.location.href = '/';
+                    msgContainer.innerHTML = '<i class="fas fa-times-circle"></i> El enlace es inválido o ya fue usado.';
                 }
             }
         } catch (e) {
-            document.getElementById('activationTitle').innerText = 'Error';
-            document.getElementById('activationTitle').style.color = 'var(--danger)';
-            document.getElementById('activationMessage').innerHTML = 'Ocurrió un error al intentar conectar con el servidor.';
-            const btn = document.getElementById('activationBtn');
-            btn.style.display = 'block';
-            btn.innerText = 'Volver al Inicio';
-            btn.onclick = () => window.location.href = '/';
+            msgContainer.style.background = 'rgba(239, 68, 68, 0.15)';
+            msgContainer.style.color = 'var(--danger)';
+            msgContainer.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error al conectar con el servidor.';
         }
     }
 
