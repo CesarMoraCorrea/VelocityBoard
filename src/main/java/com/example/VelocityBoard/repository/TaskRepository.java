@@ -12,4 +12,5 @@ public interface TaskRepository extends ReactiveMongoRepository<Task, String> {
     Flux<Task> findByUserId(String userId);
     Flux<Task> findByColumnIdOrderByPositionAsc(String columnId);
     Flux<Task> findByColumnIdInAndDeletedTrue(Collection<String> columnIds);
+    reactor.core.publisher.Mono<Void> deleteByUserId(String userId);
 }
