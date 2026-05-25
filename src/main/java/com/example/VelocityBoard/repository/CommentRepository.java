@@ -8,4 +8,5 @@ import reactor.core.publisher.Flux;
 @Repository
 public interface CommentRepository extends ReactiveMongoRepository<Comment, String> {
     Flux<Comment> findByTaskIdOrderByCreatedAtAsc(String taskId);
+    reactor.core.publisher.Mono<Void> deleteByTableroId(String tableroId);
 }
