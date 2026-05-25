@@ -1,6 +1,7 @@
 package com.example.VelocityBoard.controller;
 
 import com.example.VelocityBoard.dto.CrearTableroRequest;
+import com.example.VelocityBoard.dto.CollaboratorResponse;
 import com.example.VelocityBoard.model.Tablero;
 import com.example.VelocityBoard.security.JwtUtil;
 import com.example.VelocityBoard.service.TableroService;
@@ -55,6 +56,12 @@ public class TableroController {
     public Mono<Tablero> removeMember(@PathVariable String id, @PathVariable String userIdToRemove) {
         return obtenerUserId()
                 .flatMap(currentUserId -> tableroService.removeMember(id, userIdToRemove, currentUserId));
+    }
+
+    @GetMapping("/{id}/collaborators")
+    public Flux<CollaboratorResponse> obtenerColaboradores(@PathVariable String id) {
+        return obtenerUserId()
+                .flatMapMany(userId -> tableroService.listarColaboradores(id, userId));
     }
 
     @GetMapping(value = "/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
