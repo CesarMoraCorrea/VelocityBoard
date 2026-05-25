@@ -17,15 +17,18 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final TaskActivityRepository taskActivityRepository;
     private final Sinks.Many<Task> sink;
+    private final EmailService emailService;
 
-    public TaskService(TaskRepository taskRepository, TaskActivityRepository taskActivityRepository) {
+    public TaskService(TaskRepository taskRepository, TaskActivityRepository taskActivityRepository, EmailService emailService) {
         this.taskRepository = taskRepository;
         this.taskActivityRepository = taskActivityRepository;
+        this.emailService = emailService;
         // Use a multicasting sink to broadcast events to all subscribers
         this.sink = Sinks.many().multicast().onBackpressureBuffer();
     }
 
     public Mono<Task> saveAndEmitTask(Task task, String username, String action) {
+        System.out.println("[VelocityBoard DEBUG] saveAndEmitTask entry. Title: " + task.getTitle() + ", Assigned Email: " + task.getAssignedUserEmail());
         return taskRepository.save(task)
                 .flatMap(savedTask -> {
                     TaskActivity activity = TaskActivity.builder()
@@ -37,8 +40,26 @@ public class TaskService {
                     return taskActivityRepository.save(activity).thenReturn(savedTask);
                 })
                 .doOnSuccess(savedTask -> {
-                    // Try to emit the event, this broadcasts to all subscribers
-                    sink.tryEmitNext(savedTask);
+                    if (savedTask != null) {
+                        String assignedEmail = savedTask.getAssignedUserEmail();
+                        System.out.println("[VelocityBoard DEBUG] saveAndEmitTask saved successfully. ID: " + savedTask.getId() + ", Assigned Email: " + assignedEmail);
+                        if (assignedEmail != null && !assignedEmail.isEmpty()) {
+                            String subject = "Nueva tarea asignada: " + savedTask.getTitle();
+                            String htmlBody = "Hello, a new task titled \"" + savedTask.getTitle() + "\" has been assigned to you on VelocityBoard.";
+                            System.out.println("[VelocityBoard DEBUG] Attempting to send email to: " + assignedEmail + " with subject: " + subject);
+                            emailService.sendHtmlEmail(assignedEmail, subject, htmlBody)
+                                    .subscribe(
+                                            response -> System.out.println("[VelocityBoard DEBUG] Email sent successfully! Response ID: " + response.getId()),
+                                            error -> {
+                                                System.err.println("[VelocityBoard DEBUG] Failed to send assignment email: " + error.getMessage());
+                                                error.printStackTrace();
+                                            }
+                                    );
+                        } else {
+                            System.out.println("[VelocityBoard DEBUG] No assigned user email found for task. Skipping email send.");
+                        }
+                        sink.tryEmitNext(savedTask);
+                    }
                 });
     }
 
@@ -67,24 +88,62 @@ public class TaskService {
     }
 
     public Mono<Task> updateTask(String id, Task updatedTask, String username) {
+        System.out.println("[VelocityBoard DEBUG] updateTask entry. ID: " + id + ", Title: " + updatedTask.getTitle() + ", Assigned Email: " + updatedTask.getAssignedUserEmail());
         return taskRepository.findById(id)
                 .flatMap(existingTask -> {
+                    String oldEmail = existingTask.getAssignedUserEmail();
+                    String newEmail = updatedTask.getAssignedUserEmail();
+                    System.out.println("[VelocityBoard DEBUG] updateTask processing. Task ID: " + id + ", Old Email: " + oldEmail + ", New Email: " + newEmail);
+
                     if (updatedTask.getTitle() != null) existingTask.setTitle(updatedTask.getTitle());
                     if (updatedTask.getDescription() != null) existingTask.setDescription(updatedTask.getDescription());
                     if (updatedTask.getColumnId() != null) existingTask.setColumnId(updatedTask.getColumnId());
                     if (updatedTask.getTags() != null) existingTask.setTags(updatedTask.getTags());
                     if (updatedTask.getPosition() != null) existingTask.setPosition(updatedTask.getPosition());
+
+                    if (newEmail != null) {
+                        existingTask.setAssignedUserEmail(newEmail.isEmpty() ? null : newEmail);
+                    }
+
                     existingTask.setUpdatedBy(username);
                     existingTask.setUpdatedAt(new Date());
-                    return taskRepository.save(existingTask);
+
+                    boolean isNewAssignment = existingTask.getAssignedUserEmail() != null 
+                            && !existingTask.getAssignedUserEmail().isEmpty()
+                            && !existingTask.getAssignedUserEmail().equals(oldEmail);
+
+                    System.out.println("[VelocityBoard DEBUG] updateTask saving. Is new assignment: " + isNewAssignment);
+
+                    return taskRepository.save(existingTask)
+                            .flatMap(savedTask -> {
+                                TaskActivity activity = TaskActivity.builder()
+                                        .taskId(savedTask.getId()).username(username)
+                                        .action("editó la tarea").timestamp(new Date()).build();
+                                return taskActivityRepository.save(activity).thenReturn(savedTask);
+                            })
+                            .doOnSuccess(savedTask -> {
+                                if (savedTask != null && isNewAssignment) {
+                                    String subject = "Nueva tarea asignada: " + savedTask.getTitle();
+                                    String htmlBody = "Hello, a new task titled \"" + savedTask.getTitle() + "\" has been assigned to you on VelocityBoard.";
+                                    System.out.println("[VelocityBoard DEBUG] Attempting to send update email to: " + savedTask.getAssignedUserEmail() + " with subject: " + subject);
+                                    emailService.sendHtmlEmail(savedTask.getAssignedUserEmail(), subject, htmlBody)
+                                            .subscribe(
+                                                    response -> System.out.println("[VelocityBoard DEBUG] Email sent successfully on update! Response ID: " + response.getId()),
+                                                    error -> {
+                                                        System.err.println("[VelocityBoard DEBUG] Failed to send update assignment email: " + error.getMessage());
+                                                        error.printStackTrace();
+                                                    }
+                                            );
+                                } else {
+                                    System.out.println("[VelocityBoard DEBUG] No new assignment detected or assignee is empty. Skipping update email.");
+                                }
+                            });
                 })
-                .flatMap(task -> {
-                    TaskActivity activity = TaskActivity.builder()
-                            .taskId(task.getId()).username(username)
-                            .action("editó la tarea").timestamp(new Date()).build();
-                    return taskActivityRepository.save(activity).thenReturn(task);
-                })
-                .doOnSuccess(task -> sink.tryEmitNext(task));
+                .doOnSuccess(task -> {
+                    if (task != null) {
+                        sink.tryEmitNext(task);
+                    }
+                });
     }
 
     public Mono<Task> softDeleteTask(String id, String username) {

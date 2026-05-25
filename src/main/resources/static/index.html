@@ -929,6 +929,11 @@
                 <div class="input-group">
                     <input type="text" id="taskDesc" placeholder="Descripción breve" autocomplete="off">
                 </div>
+                <div class="input-group" style="margin-bottom: 20px;">
+                    <select id="taskAssignedEmail" class="modal-select">
+                        <option value="">— Asignar a... (Sin asignar) —</option>
+                    </select>
+                </div>
                 <button type="submit">Agregar al Tablero</button>
             </form>
         </div>
@@ -967,6 +972,12 @@
                 <h4 style="margin: 0 0 10px 0; font-size: 0.95rem; color: #cbd5e1;"><i class="fas fa-align-left"></i> Descripción</h4>
                 <div class="comment-input-area" style="margin-bottom: 20px;">
                     <textarea id="editTaskDesc" placeholder="Nueva descripción"></textarea>
+                </div>
+                <h4 style="margin: 0 0 10px 0; font-size: 0.95rem; color: #cbd5e1;"><i class="fas fa-user"></i> Asignado a</h4>
+                <div class="input-group" style="margin-bottom: 20px;">
+                    <select id="editTaskAssignedEmail" class="modal-select">
+                        <option value="">— Sin asignar —</option>
+                    </select>
                 </div>
                 <div style="display: flex; gap: 10px; margin-bottom: 15px;">
                     <button type="submit" style="flex: 1;">Guardar Cambios</button>
@@ -1217,6 +1228,7 @@
 
         cargarTableros();
         initTableroSSE();
+        loadUsersForDropdown();
     }
 
     async function cargarTableros() {
@@ -1517,6 +1529,40 @@
         localTasks = [];
     }
 
+    async function loadUsersForDropdown() {
+        try {
+            const res = await fetch('/users/list', {
+                headers: { 'Authorization': `Bearer ${jwtToken}` }
+            });
+            if (res.ok) {
+                const users = await res.json();
+                const taskSelect = document.getElementById('taskAssignedEmail');
+                const editSelect = document.getElementById('editTaskAssignedEmail');
+                
+                taskSelect.innerHTML = '<option value="">— Asignar a... (Sin asignar) —</option>';
+                editSelect.innerHTML = '<option value="">— Sin asignar —</option>';
+                
+                users.forEach(u => {
+                    if (u.email) {
+                        const optText = `${u.username} (${u.email})`;
+                        
+                        const opt1 = document.createElement('option');
+                        opt1.value = u.email;
+                        opt1.textContent = optText;
+                        taskSelect.appendChild(opt1);
+                        
+                        const opt2 = document.createElement('option');
+                        opt2.value = u.email;
+                        opt2.textContent = optText;
+                        editSelect.appendChild(opt2);
+                    }
+                });
+            }
+        } catch (e) {
+            console.error("Error loading users for dropdown", e);
+        }
+    }
+
     // Modal logic
     function openModal(columnId) {
         document.getElementById('taskColumnId').value = columnId;
@@ -1535,6 +1581,7 @@
         const title = document.getElementById('taskTitle').value;
         const desc = document.getElementById('taskDesc').value;
         const columnId = document.getElementById('taskColumnId').value;
+        const assignedUserEmail = document.getElementById('taskAssignedEmail').value;
         const claims = parseJwt(jwtToken);
 
         try {
@@ -1544,7 +1591,7 @@
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${jwtToken}`
                 },
-                body: JSON.stringify({ title, description: desc, columnId, tableroId: tableroActual.id, userId: claims.userId })
+                body: JSON.stringify({ title, description: desc, columnId, tableroId: tableroActual.id, userId: claims.userId, assignedUserEmail })
             });
             if (response.ok) {
                 const newTask = await response.json();
@@ -1710,7 +1757,7 @@
                     <button class="icon-btn archive" onclick="archiveTask('${task.id}')" title="Archivar"><i class="fas fa-archive"></i></button>
                     <button class="icon-btn danger" onclick="softDeleteTask('${task.id}')" title="Mover a Papelera"><i class="fas fa-trash"></i></button>
                     <button class="icon-btn history" onclick="openHistoryModal('${task.id}')" title="Historial"><i class="fas fa-history"></i></button>
-                    <button class="edit-task-btn" onclick="openEditTaskModal('${task.id}', '${encodeURIComponent(task.title || '')}', '${encodeURIComponent(task.description || '')}')">Editar</button>
+                    <button class="edit-task-btn" onclick="openEditTaskModal('${task.id}', '${encodeURIComponent(task.title || '')}', '${encodeURIComponent(task.description || '')}', '${encodeURIComponent(task.assignedUserEmail || '')}')">Editar</button>
                 `;
             }
             existingCard.querySelector('.task-footer').innerHTML = `
@@ -1761,7 +1808,7 @@
                 <button class="icon-btn archive" onclick="archiveTask('${task.id}')" title="Archivar"><i class="fas fa-archive"></i></button>
                 <button class="icon-btn danger" onclick="softDeleteTask('${task.id}')" title="Mover a Papelera"><i class="fas fa-trash"></i></button>
                 <button class="icon-btn history" onclick="openHistoryModal('${task.id}')" title="Historial"><i class="fas fa-history"></i></button>
-                <button class="edit-task-btn" onclick="openEditTaskModal('${task.id}', '${encodeURIComponent(task.title || '')}', '${encodeURIComponent(task.description || '')}')">Editar</button>
+                <button class="edit-task-btn" onclick="openEditTaskModal('${task.id}', '${encodeURIComponent(task.title || '')}', '${encodeURIComponent(task.description || '')}', '${encodeURIComponent(task.assignedUserEmail || '')}')">Editar</button>
             `;
         }
 
@@ -1783,10 +1830,11 @@
         }
     }
 
-    function openEditTaskModal(id, title, desc) {
+    function openEditTaskModal(id, title, desc, assignedUserEmail) {
         document.getElementById('editTaskId').value = id;
         document.getElementById('editTaskTitle').value = decodeURIComponent(title);
         document.getElementById('editTaskDesc').value = decodeURIComponent(desc);
+        document.getElementById('editTaskAssignedEmail').value = assignedUserEmail ? decodeURIComponent(assignedUserEmail) : '';
         document.getElementById('editTaskModal').style.display = 'flex';
         loadComments(id);
     }
@@ -1794,6 +1842,7 @@
     function closeEditTaskModal() {
         document.getElementById('editTaskModal').style.display = 'none';
         document.getElementById('editTaskForm').reset();
+        document.getElementById('editTaskAssignedEmail').value = '';
         document.getElementById('newCommentContent').value = '';
         document.getElementById('commentsList').innerHTML = '';
     }
@@ -1803,6 +1852,7 @@
         const id = document.getElementById('editTaskId').value;
         const title = document.getElementById('editTaskTitle').value;
         const description = document.getElementById('editTaskDesc').value;
+        const assignedUserEmail = document.getElementById('editTaskAssignedEmail').value;
         try {
             const response = await fetch(`/tasks/${id}`, {
                 method: 'PUT',
@@ -1810,7 +1860,7 @@
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${jwtToken}`
                 },
-                body: JSON.stringify({ title, description })
+                body: JSON.stringify({ title, description, assignedUserEmail })
             });
             if (!response.ok) throw new Error('Error al editar la tarea');
             const updatedTask = await response.json();

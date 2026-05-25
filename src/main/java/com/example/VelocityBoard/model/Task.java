@@ -27,4 +27,13 @@ public class Task {
     private String createdBy;
     private Date updatedAt;
     private String updatedBy;
+    private String assignedUserEmail;
+
+    public String getAssignedUserEmail() {
+        return this.assignedUserEmail;
+    }
+
+    public void setAssignedUserEmail(String assignedUserEmail) {
+        this.assignedUserEmail = assignedUserEmail;
+    }
 }
