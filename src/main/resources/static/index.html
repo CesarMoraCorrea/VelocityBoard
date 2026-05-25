@@ -738,6 +738,173 @@
             color: #f59e0b;
             background: rgba(245, 158, 11, 0.15);
         }
+
+        /* COLLABORATORS DROPDOWN POPULAR DESIGN */
+        .collaborators-dropdown-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        .collaborators-trigger {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--border);
+            padding: 6px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #cbd5e1;
+            transition: all 0.2s ease;
+        }
+
+        .collaborators-trigger:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            border-color: rgba(255, 255, 255, 0.25);
+            transform: translateY(-1px);
+        }
+
+        .collaborators-dropdown {
+            position: absolute;
+            top: 42px;
+            right: 0;
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.6), 0 10px 15px -5px rgba(0, 0, 0, 0.4);
+            width: 290px;
+            z-index: 1000;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            animation: slideDown 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .collaborators-dropdown.show {
+            display: flex;
+        }
+
+        .collaborators-dropdown-header {
+            padding: 14px 16px;
+            background: rgba(15, 23, 42, 0.4);
+            border-bottom: 1px solid var(--border);
+            font-weight: 700;
+            font-size: 0.88rem;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .collaborators-dropdown-list {
+            max-height: 250px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .collaborator-dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 11px 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            transition: background 0.2s ease;
+        }
+
+        .collaborator-dropdown-item:last-child {
+            border-bottom: none;
+        }
+
+        .collaborator-dropdown-item:hover {
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .collaborator-dropdown-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.72rem;
+            font-weight: bold;
+            color: white;
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .collaborator-dropdown-avatar.owner {
+            background: linear-gradient(135deg, #eab308, #ca8a04);
+        }
+
+        .collaborator-dropdown-info {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .collaborator-dropdown-name {
+            font-weight: 700;
+            font-size: 0.85rem;
+            color: #f8fafc;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .collaborator-dropdown-email {
+            font-size: 0.73rem;
+            color: #94a3b8;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: 1px;
+        }
+
+        .collaborator-dropdown-badge {
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 0.62rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+        }
+
+        .collaborator-dropdown-badge.creator {
+            background: rgba(234, 179, 8, 0.15);
+            color: #eab308;
+            border: 1px solid rgba(234, 179, 8, 0.25);
+        }
+
+        .collaborator-dropdown-badge.member {
+            background: rgba(59, 130, 246, 0.12);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+
+        .online-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--success);
+            border: 1.5px solid #1e293b;
+            position: absolute;
+            bottom: -1px;
+            right: -1px;
+        }
     </style>
 </head>
 <body>
@@ -828,6 +995,9 @@
                 <button class="btn-nav active" id="navBoard" onclick="switchView('board')">
                     <i class="fas fa-columns"></i> Tablero
                 </button>
+                <button class="btn-nav" id="navCollaborators" onclick="switchView('collaborators')">
+                    <i class="fas fa-user-friends"></i> Colaboradores
+                </button>
                 <button class="btn-nav" id="navUsers" onclick="switchView('users')" style="display:none">
                     <i class="fas fa-users"></i> Usuarios
                 </button>
@@ -894,6 +1064,18 @@
                 <button class="reload-btn" onclick="loadUsers()"><i class="fas fa-sync-alt"></i> Recargar</button>
             </div>
             <div id="usersGrid" class="users-grid"></div>
+        </div>
+
+        <!-- COLLABORATORS VIEW -->
+        <div class="users-container" id="collaboratorsContainer">
+            <div class="users-header">
+                <h2><i class="fas fa-user-friends" style="color: var(--primary); margin-right: 10px;"></i> Colaboradores Activos</h2>
+                <div style="display: flex; gap: 8px;">
+                    <button class="reload-btn" style="background: var(--success); color: white; border-color: var(--success);" onclick="openAddMemberModal()"><i class="fas fa-plus"></i> Agregar Miembro</button>
+                    <button class="reload-btn" onclick="loadCollaborators()"><i class="fas fa-sync-alt"></i> Recargar</button>
+                </div>
+            </div>
+            <div id="collaboratorsGrid" class="users-grid"></div>
         </div>
     </div>
 
@@ -973,10 +1155,16 @@
                 <div class="comment-input-area" style="margin-bottom: 20px;">
                     <textarea id="editTaskDesc" placeholder="Nueva descripción"></textarea>
                 </div>
-                <h4 style="margin: 0 0 10px 0; font-size: 0.95rem; color: #cbd5e1;"><i class="fas fa-user"></i> Asignado a</h4>
+                <h4 style="margin: 0 0 10px 0; font-size: 0.95rem; color: #cbd5e1;"><i class="fas fa-user"></i> Asignado a (Email)</h4>
                 <div class="input-group" style="margin-bottom: 20px;">
                     <select id="editTaskAssignedEmail" class="modal-select">
                         <option value="">— Sin asignar —</option>
+                    </select>
+                </div>
+                <h4 style="margin: 0 0 10px 0; font-size: 0.95rem; color: #cbd5e1;"><i class="fas fa-user-tag"></i> Colaborador Asignado</h4>
+                <div class="input-group" style="margin-bottom: 20px;">
+                    <select id="editTaskAssignee" class="modal-select">
+                        <option value="none">Sin asignar</option>
                     </select>
                 </div>
                 <div style="display: flex; gap: 10px; margin-bottom: 15px;">
@@ -1111,6 +1299,7 @@
     let abortController = null;
     let localTasks = []; // Cache to ensure no duplicates in UI
     let tableroActual = null; // Tablero seleccionado actualmente
+    let localCollaborators = []; // Active board collaborators in memory
 
     // Automatically check for existing session or activation route
     window.onload = () => {
@@ -1272,7 +1461,7 @@
 
     function seleccionarTablero(tablero) {
         tableroActual = tablero;
-        renderBoardMembers(tablero);
+        loadBoardCollaborators();
         document.getElementById('tablerosSection').style.display = 'none';
         document.getElementById('boardSection').style.display = 'flex';
         document.getElementById('tableroActivoNombre').innerText = `/ ${tablero.nombre}`;
@@ -1679,6 +1868,41 @@
         }
     }
 
+    function getAssigneeAvatarHtml(userId) {
+        if (!userId) {
+            return `
+                <div class="avatar-circle-mini unassigned" title="Sin asignar" style="width: 24px; height: 24px; border-radius: 50%; background: #475569; color: #cbd5e1; display: inline-flex; align-items: center; justify-content: center; font-size: 0.65rem; border: 1.5px solid var(--card-bg); margin: 0; cursor: default;">
+                    <i class="fas fa-user-slash" style="font-size: 0.6rem;"></i>
+                </div>
+            `;
+        }
+
+        const activeIds = tableroActual ? [tableroActual.propietarioId, ...(tableroActual.miembros || [])] : [];
+        if (!activeIds.includes(userId)) {
+            return `
+                <div class="avatar-circle-mini unassigned" title="Sin asignar" style="width: 24px; height: 24px; border-radius: 50%; background: #475569; color: #cbd5e1; display: inline-flex; align-items: center; justify-content: center; font-size: 0.65rem; border: 1.5px solid var(--card-bg); margin: 0; cursor: default;">
+                    <i class="fas fa-user-slash" style="font-size: 0.6rem;"></i>
+                </div>
+            `;
+        }
+        
+        const u = userCache[userId];
+        if (u) {
+            const initial = (u.username || '?')[0].toUpperCase();
+            return `
+                <div class="avatar-circle-mini" title="Asignado a: ${escapeHtml(u.username)}" style="width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--accent)); color: white; display: inline-flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold; border: 1.5px solid var(--card-bg); margin: 0; cursor: default;">
+                    ${initial}
+                </div>
+            `;
+        } else {
+            return `
+                <div class="avatar-circle-mini unassigned" title="Sin asignar" style="width: 24px; height: 24px; border-radius: 50%; background: #475569; color: #cbd5e1; display: inline-flex; align-items: center; justify-content: center; font-size: 0.65rem; border: 1.5px solid var(--card-bg); margin: 0; cursor: default;">
+                    <i class="fas fa-user-slash" style="font-size: 0.6rem;"></i>
+                </div>
+            `;
+        }
+    }
+
     function renderTask(task) {
         if (!task.id) return;
 
@@ -1760,9 +1984,13 @@
                     <button class="edit-task-btn" onclick="openEditTaskModal('${task.id}', '${encodeURIComponent(task.title || '')}', '${encodeURIComponent(task.description || '')}', '${encodeURIComponent(task.assignedUserEmail || '')}')">Editar</button>
                 `;
             }
+            const assigneeAvatar = getAssigneeAvatarHtml(task.userId);
             existingCard.querySelector('.task-footer').innerHTML = `
-                <span>#${task.id.slice(-4)}</span>
-                <i class="fas fa-align-left"></i>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span>#${task.id.slice(-4)}</span>
+                    <i class="fas fa-align-left"></i>
+                    <div class="task-assignee-container" style="display: inline-flex;">${assigneeAvatar}</div>
+                </div>
                 <div class="task-actions">${buttonsHtml}</div>
             `;
 
@@ -1812,31 +2040,94 @@
             `;
         }
 
+        const assigneeAvatar = getAssigneeAvatarHtml(task.userId);
         card.innerHTML = `
             <div class="task-title">${task.title || 'Nueva Tarea'}</div>
             <div class="task-desc">${task.description || ''}</div>
             ${dateHtml}
             <div class="task-footer">
-                <span>#${task.id.slice(-4)}</span>
-                <i class="fas fa-align-left"></i>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span>#${task.id.slice(-4)}</span>
+                    <i class="fas fa-align-left"></i>
+                    <div class="task-assignee-container" style="display: inline-flex;">${assigneeAvatar}</div>
+                </div>
                 <div class="task-actions">${buttonsHtml}</div>
             </div>
         `;
         container.appendChild(card);
         updateCounts();
 
+        // Lazy load assignee if not in userCache
+        if (task.userId && !userCache[task.userId]) {
+            const token = localStorage.getItem('vb_token');
+            fetch(`/users/batch`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify([task.userId])
+            }).then(res => {
+                if (res.ok) return res.json();
+            }).then(users => {
+                if (users && users.length > 0) {
+                    userCache[users[0].id] = users[0];
+                    const cardEl = document.getElementById(`task-${task.id}`);
+                    if (cardEl) {
+                        const avatarContainer = cardEl.querySelector('.task-assignee-container');
+                        if (avatarContainer) {
+                            avatarContainer.innerHTML = getAssigneeAvatarHtml(task.userId);
+                        }
+                    }
+                }
+            }).catch(e => console.error(e));
+        }
+
         if (activeHistoryTaskId === task.id && document.getElementById('historyModal').style.display === 'flex') {
             openHistoryModal(task.id);
         }
     }
 
-    function openEditTaskModal(id, title, desc, assignedUserEmail) {
+    async function openEditTaskModal(id, title, desc, assignedUserEmail) {
         document.getElementById('editTaskId').value = id;
         document.getElementById('editTaskTitle').value = decodeURIComponent(title);
         document.getElementById('editTaskDesc').value = decodeURIComponent(desc);
         document.getElementById('editTaskAssignedEmail').value = assignedUserEmail ? decodeURIComponent(assignedUserEmail) : '';
         document.getElementById('editTaskModal').style.display = 'flex';
         loadComments(id);
+
+        let currentAssigneeId = null;
+        try {
+            const token = localStorage.getItem('vb_token');
+            const resTask = await fetch(`/tasks/${id}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (resTask.ok) {
+                const tObj = await resTask.json();
+                currentAssigneeId = tObj.userId;
+            }
+        } catch(err) { console.error("Error fetching task details", err); }
+
+        const select = document.getElementById('editTaskAssignee');
+        select.innerHTML = '<option value="none">Sin asignar</option>';
+
+        if (tableroActual) {
+            try {
+                const token = localStorage.getItem('vb_token');
+                const res = await fetch(`/tableros/${tableroActual.id}/collaborators`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const collaborators = await res.json();
+                    collaborators.forEach(col => {
+                        const opt = document.createElement('option');
+                        opt.value = col.id;
+                        opt.textContent = `${col.name} (${col.status === 'CREATOR' ? 'Propietario' : 'Colaborador'})`;
+                        if (col.id === currentAssigneeId) {
+                            opt.selected = true;
+                        }
+                        select.appendChild(opt);
+                    });
+                }
+            } catch(e) { console.error("Error populating dropdown", e); }
+        }
     }
 
     function closeEditTaskModal() {
@@ -1853,6 +2144,7 @@
         const title = document.getElementById('editTaskTitle').value;
         const description = document.getElementById('editTaskDesc').value;
         const assignedUserEmail = document.getElementById('editTaskAssignedEmail').value;
+        const userId = document.getElementById('editTaskAssignee').value;
         try {
             const response = await fetch(`/tasks/${id}`, {
                 method: 'PUT',
@@ -1860,7 +2152,7 @@
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${jwtToken}`
                 },
-                body: JSON.stringify({ title, description, assignedUserEmail })
+                body: JSON.stringify({ title, description, assignedUserEmail, userId })
             });
             if (!response.ok) throw new Error('Error al editar la tarea');
             const updatedTask = await response.json();
@@ -2196,10 +2488,14 @@
     function switchView(view) {
         const boardContainer = document.getElementById('mainBoardContainer');
         const usersContainer = document.getElementById('usersContainer');
+        const collaboratorsContainer = document.getElementById('collaboratorsContainer');
         const archiveContainer = document.getElementById('archiveContainer');
         const trashContainer = document.getElementById('trashContainer');
 
         document.getElementById('navBoard').classList.toggle('active', view === 'board');
+        if (document.getElementById('navCollaborators')) {
+            document.getElementById('navCollaborators').classList.toggle('active', view === 'collaborators');
+        }
         document.getElementById('navUsers').classList.toggle('active', view === 'users');
         document.getElementById('navArchive').classList.toggle('active', view === 'archive');
         document.getElementById('navTrash').classList.toggle('active', view === 'trash');
@@ -2218,6 +2514,111 @@
         } else {
             usersContainer.classList.remove('visible');
         }
+
+        if (view === 'collaborators') {
+            collaboratorsContainer.classList.add('visible');
+            loadCollaborators();
+        } else {
+            collaboratorsContainer.classList.remove('visible');
+        }
+    }
+
+    async function loadCollaborators() {
+        if (!tableroActual) {
+            alert("Selecciona un tablero primero.");
+            switchView('board');
+            return;
+        }
+        const grid = document.getElementById('collaboratorsGrid');
+        grid.innerHTML = '<div class="users-loading"><i class="fas fa-spinner fa-spin"></i> Cargando colaboradores...</div>';
+        try {
+            const token = localStorage.getItem('vb_token');
+            const res = await fetch(`/tableros/${tableroActual.id}/collaborators`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!res.ok) throw new Error("Error al obtener colaboradores");
+            const collaborators = await res.json();
+            
+            grid.innerHTML = '';
+            if (!collaborators.length) {
+                grid.innerHTML = '<div class="users-loading">No hay colaboradores activos en este tablero.</div>';
+                return;
+            }
+            
+            collaborators.forEach(c => grid.appendChild(renderCollaboratorCard(c)));
+        } catch (err) {
+            grid.innerHTML = `<div class="users-loading" style="color: var(--danger);"><i class="fas fa-exclamation-triangle"></i> ${err.message}</div>`;
+        }
+    }
+
+    function renderCollaboratorCard(collaborator) {
+        const card = document.createElement('div');
+        card.className = 'user-card';
+        card.id = `collaborator-card-${collaborator.id}`;
+        const initial = (collaborator.name || '?')[0].toUpperCase();
+        const isOwner = collaborator.status === 'CREATOR';
+        
+        const token = localStorage.getItem('vb_token');
+        const claims = token ? parseJwt(token) : {};
+        const isCreator = claims.userId === tableroActual.propietarioId;
+        
+        const canRemove = isCreator && !isOwner;
+        
+        card.innerHTML = `
+            <div class="user-card-header">
+                <div class="user-avatar" style="background: linear-gradient(135deg, ${isOwner ? '#eab308, #ca8a04' : 'var(--primary), var(--accent)'});">
+                    ${initial}
+                </div>
+                <div class="user-card-info">
+                    <div class="user-card-name-row">
+                        <div class="user-card-name" title="${collaborator.name}">${collaborator.name}</div>
+                        <span class="role-badge ${isOwner ? 'admin' : 'user'}" style="background: ${isOwner ? 'rgba(234, 179, 8, 0.15)' : 'rgba(59, 130, 246, 0.1)'}; color: ${isOwner ? '#eab308' : '#60a5fa'}; border-color: ${isOwner ? 'rgba(234, 179, 8, 0.3)' : 'rgba(59, 130, 246, 0.2)'};">
+                            <i class="fas ${isOwner ? 'fa-crown' : 'fa-user'}"></i>
+                            ${isOwner ? 'Propietario' : 'Colaborador'}
+                        </span>
+                    </div>
+                    <div class="user-card-email" title="${collaborator.email || 'Sin email'}">${collaborator.email || '—'}</div>
+                </div>
+            </div>
+            ${canRemove ? `
+            <div class="user-card-actions">
+                <button class="user-action-btn danger" onclick="confirmRemoveCollaborator('${collaborator.id}', '${escapeHtml(collaborator.name)}')">
+                    <i class="fas fa-user-minus"></i> Remover del Tablero
+                </button>
+            </div>
+            ` : ''}
+            <div class="user-card-footer">ID: ${collaborator.id}</div>
+        `;
+        return card;
+    }
+
+    function confirmRemoveCollaborator(userId, username) {
+        showConfirmModal({
+            title: 'Remover Colaborador',
+            message: `¿Estás seguro de que deseas remover a ${username} de este tablero?`,
+            confirmText: 'Sí, Remover',
+            type: 'danger',
+            onConfirm: async () => {
+                try {
+                    const token = localStorage.getItem('vb_token');
+                    const res = await fetch(`/tableros/${tableroActual.id}/members/${userId}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (res.ok) {
+                        loadCollaborators();
+                        if (tableroActual.miembros) {
+                            tableroActual.miembros = tableroActual.miembros.filter(id => id !== userId);
+                        }
+                        loadBoardCollaborators();
+                    } else {
+                        alert("No se pudo remover al miembro.");
+                    }
+                } catch (err) {
+                    alert("Error de conexión.");
+                }
+            }
+        });
     }
 
     // === DRAG & DROP LOGIC ===
@@ -2482,7 +2883,7 @@
 
                         // Not removed, simply update the header if member list changed
                         tableroActual = updatedTablero;
-                        renderBoardMembers(tableroActual);
+                        loadBoardCollaborators();
                     }
                 } catch(e) {}
             }
@@ -2541,7 +2942,7 @@
             });
             if(updateRes.ok) {
                 tableroActual = await updateRes.json();
-                renderBoardMembers(tableroActual);
+                loadBoardCollaborators();
             }
         } else {
             alert("Error o no tienes permisos para agregar miembros.");
@@ -2612,7 +3013,7 @@
             if (tableroActual.miembros) {
                 tableroActual.miembros = tableroActual.miembros.filter(id => id !== userId);
             }
-            renderBoardMembers(tableroActual);
+            loadBoardCollaborators();
         } else {
             alert("Error o no tienes permisos para remover miembros.");
         }
@@ -2620,101 +3021,111 @@
 
     let userCache = {};
 
-    async function renderBoardMembers(tablero) {
-        const container = document.getElementById('boardMembersContainer');
-        container.innerHTML = '';
-        
-        const propietarioId = tablero.propietarioId;
-        const miembros = tablero.miembros || [];
-        
-        const token = localStorage.getItem('vb_token');
-        const claims = token ? parseJwt(token) : {};
-        const isCreator = claims.userId === propietarioId;
-        
-        const allIds = [propietarioId, ...miembros].filter(id => id);
-        
-        const missingIds = allIds.filter(id => !userCache[id]);
-        
-        if (missingIds.length > 0) {
-            try {
-                const res = await fetch('/users/batch', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify(missingIds)
+    async function loadBoardCollaborators() {
+        if (!tableroActual) return;
+        try {
+            const token = localStorage.getItem('vb_token');
+            const res = await fetch(`/tableros/${tableroActual.id}/collaborators`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                localCollaborators = await res.json();
+                // Put them in userCache as well to instantly resolve task assignees
+                localCollaborators.forEach(c => {
+                    userCache[c.id] = {
+                        id: c.id,
+                        username: c.name,
+                        email: c.email,
+                        status: c.status
+                    };
                 });
-                if (res.ok) {
-                    const users = await res.json();
-                    users.forEach(u => {
-                        userCache[u.id] = u;
-                    });
-                }
-            } catch (e) {
-                console.error("Error fetching users batch", e);
+                renderCollaboratorsTopbar();
             }
+        } catch(e) {
+            console.error("Error loading board collaborators", e);
         }
-        
-        let html = '';
-        
-        if (propietarioId && userCache[propietarioId]) {
-            const prop = userCache[propietarioId];
-            const initial = (prop.username || '?')[0].toUpperCase();
-            html += `
-                <div class="avatar-circle" onclick="toggleMemberTooltip(event, this)">
+    }
+
+    function renderCollaboratorsTopbar() {
+        const container = document.getElementById('boardMembersContainer');
+        if (!container) return;
+        container.innerHTML = '';
+
+        if (!tableroActual || localCollaborators.length === 0) {
+            return;
+        }
+
+        // Show first 3 avatares overlapping
+        const first3 = localCollaborators.slice(0, 3);
+        let avataresHtml = '';
+        first3.forEach((c, index) => {
+            const initial = (c.name || '?')[0].toUpperCase();
+            const isOwner = c.status === 'CREATOR';
+            avataresHtml += `
+                <div class="avatar-circle" style="background: linear-gradient(135deg, ${isOwner ? '#eab308, #ca8a04' : 'var(--primary), var(--accent)'}); ${index > 0 ? 'margin-left: -8px;' : ''} border: 2px solid var(--bg-color); cursor: pointer;" onclick="toggleCollaboratorsDropdown(event)">
                     ${initial}
-                    <div class="member-tooltip">
-                        <div class="tooltip-name">${escapeHtml(prop.username)}</div>
-                        <div class="tooltip-email">${escapeHtml(prop.email || '—')}</div>
-                        <div class="tooltip-role creador"><i class="fas fa-crown"></i> Creador</div>
+                </div>
+            `;
+        });
+
+        // Trigger button (+X Colaboradores or consolidated badge)
+        const total = localCollaborators.length;
+        const triggerHtml = `
+            <div class="collaborators-dropdown-wrapper">
+                <div class="collaborators-trigger" id="colabsTriggerBtn" onclick="toggleCollaboratorsDropdown(event)">
+                    <i class="fas fa-user-friends"></i>
+                    <span>${total} ${total === 1 ? 'Colaborador' : 'Colaboradores'}</span>
+                    <i class="fas fa-chevron-down" style="font-size: 0.7rem; margin-left: 2px;"></i>
+                </div>
+                <div class="collaborators-dropdown" id="colabsDropdownMenu">
+                    <div class="collaborators-dropdown-header">
+                        <span>Colaboradores (${total})</span>
+                        <i class="fas fa-times" style="cursor: pointer; opacity: 0.7;" onclick="toggleCollaboratorsDropdown(event)"></i>
                     </div>
-                </div>`;
-        } else {
-             html += `<div class="avatar-circle"><i class="fas fa-crown" style="font-size:0.6rem;"></i></div>`;
-        }
-        
-        const miembrosToRender = miembros.slice(0,3);
-        miembrosToRender.forEach(mId => {
-            if (userCache[mId]) {
-                const u = userCache[mId];
-                const initial = (u.username || '?')[0].toUpperCase();
-                html += `
-                    <div class="avatar-circle" onclick="toggleMemberTooltip(event, this)">
-                        ${initial}
-                        <div class="member-tooltip">
-                            <div class="tooltip-name">${escapeHtml(u.username)}</div>
-                            <div class="tooltip-email">${escapeHtml(u.email || '—')}</div>
-                            <div class="tooltip-role"><i class="fas fa-user"></i> Miembro</div>
-                            ${isCreator ? `<button class="btn-small" style="background:var(--danger); color:white; border:none; margin-top:10px; width:100%; display:flex; justify-content:center; align-items:center; gap:5px;" onclick="confirmRemoveMember('${u.id}', '${escapeHtml(u.username)}')"><i class="fas fa-times"></i> Remover</button>` : ''}
-                        </div>
-                    </div>`;
-            } else {
-                html += `<div class="avatar-circle"><i class="fas fa-user" style="font-size:0.6rem;"></i></div>`;
-            }
-        });
-        
-        const totalMembers = 1 + miembros.length;
-        if (totalMembers > 4) {
-            html += `<div class="avatar-circle" title="+${totalMembers - 4} miembros">+${totalMembers - 4}</div>`;
-        }
-        
-        container.innerHTML = html;
+                    <div class="collaborators-dropdown-list">
+                        ${localCollaborators.map(c => {
+                            const initial = (c.name || '?')[0].toUpperCase();
+                            const isOwner = c.status === 'CREATOR';
+                            return `
+                                <div class="collaborator-dropdown-item">
+                                    <div class="collaborator-dropdown-avatar ${isOwner ? 'owner' : ''}">
+                                        ${initial}
+                                        <div class="online-indicator"></div>
+                                    </div>
+                                    <div class="collaborator-dropdown-info">
+                                        <div class="collaborator-dropdown-name">${escapeHtml(c.name)}</div>
+                                        <div class="collaborator-dropdown-email">${escapeHtml(c.email || '—')}</div>
+                                    </div>
+                                    <span class="collaborator-dropdown-badge ${isOwner ? 'creator' : 'member'}">
+                                        ${isOwner ? 'Propietario' : 'Miembro'}
+                                    </span>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        container.innerHTML = `
+            <div style="display: flex; align-items: center;">
+                <div style="display: flex; margin-right: 12px;">
+                    ${avataresHtml}
+                </div>
+                ${triggerHtml}
+            </div>
+        `;
     }
 
-    // Toggle tooltip logic
-    function toggleMemberTooltip(event, element) {
-        event.stopPropagation(); // Prevent document click from immediately closing it
-        
-        // Close all other active tooltips
-        document.querySelectorAll('.avatar-circle.active').forEach(el => {
-            if (el !== element) {
-                el.classList.remove('active');
-            }
-        });
-        
-        // Toggle current
-        element.classList.toggle('active');
+    function toggleCollaboratorsDropdown(event) {
+        if (event) event.stopPropagation();
+        const menu = document.getElementById('colabsDropdownMenu');
+        if (menu) {
+            menu.classList.toggle('show');
+        }
     }
 
-    // Global click listener to close tooltips when clicking outside
+    // Global click listener to close tooltips/dropdowns when clicking outside
     document.addEventListener('click', function(event) {
         // If clicking inside a tooltip itself, do nothing
         if (event.target.closest('.member-tooltip')) {
@@ -2725,6 +3136,14 @@
         document.querySelectorAll('.avatar-circle.active').forEach(el => {
             el.classList.remove('active');
         });
+
+        // Close collaborators dropdown when clicking outside the trigger/dropdown wrapper
+        if (!event.target.closest('.collaborators-dropdown-wrapper')) {
+            const menu = document.getElementById('colabsDropdownMenu');
+            if (menu) {
+                menu.classList.remove('show');
+            }
+        }
     });
 
     // ======== DUPLICATE TASK LOGIC ========

@@ -4,6 +4,7 @@ import com.example.VelocityBoard.model.Task;
 import com.example.VelocityBoard.model.TaskActivity;
 import com.example.VelocityBoard.repository.TaskActivityRepository;
 import com.example.VelocityBoard.repository.TaskRepository;
+import com.example.VelocityBoard.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -18,11 +19,13 @@ public class TaskService {
     private final TaskActivityRepository taskActivityRepository;
     private final Sinks.Many<Task> sink;
     private final EmailService emailService;
+    private final UserRepository userRepository;
 
-    public TaskService(TaskRepository taskRepository, TaskActivityRepository taskActivityRepository, EmailService emailService) {
+    public TaskService(TaskRepository taskRepository, TaskActivityRepository taskActivityRepository, EmailService emailService, UserRepository userRepository) {
         this.taskRepository = taskRepository;
         this.taskActivityRepository = taskActivityRepository;
         this.emailService = emailService;
+        this.userRepository = userRepository;
         // Use a multicasting sink to broadcast events to all subscribers
         this.sink = Sinks.many().multicast().onBackpressureBuffer();
     }
@@ -67,24 +70,41 @@ public class TaskService {
         return taskActivityRepository.findByTaskIdOrderByTimestampDesc(taskId);
     }
 
+    private Mono<Task> sanitizarTask(Task task) {
+        if (task.getUserId() == null || task.getUserId().isEmpty()) {
+            return Mono.just(task);
+        }
+        return userRepository.existsById(task.getUserId())
+                .flatMap(exists -> {
+                    if (!exists) {
+                        task.setUserId(null);
+                        task.setAssignedUserEmail(null);
+                        return taskRepository.save(task).doOnSuccess(sink::tryEmitNext);
+                    }
+                    return Mono.just(task);
+                });
+    }
+
     public Flux<Task> getTaskEvents() {
-        return taskRepository.findAll().concatWith(sink.asFlux());
+        return taskRepository.findAll()
+                .flatMap(this::sanitizarTask)
+                .concatWith(sink.asFlux().flatMap(this::sanitizarTask));
     }
 
     public Mono<Task> getTaskById(String id) {
-        return taskRepository.findById(id);
+        return taskRepository.findById(id).flatMap(this::sanitizarTask);
     }
 
     public Flux<Task> getTasksByUserId(String userId) {
-        return taskRepository.findByUserId(userId);
+        return taskRepository.findByUserId(userId).flatMap(this::sanitizarTask);
     }
 
     public Flux<Task> getTasksByColumnId(String columnId) {
-        return taskRepository.findByColumnIdOrderByPositionAsc(columnId);
+        return taskRepository.findByColumnIdOrderByPositionAsc(columnId).flatMap(this::sanitizarTask);
     }
 
     public Flux<Task> getDeletedTasksByColumnIds(Collection<String> columnIds) {
-        return taskRepository.findByColumnIdInAndDeletedTrue(columnIds);
+        return taskRepository.findByColumnIdInAndDeletedTrue(columnIds).flatMap(this::sanitizarTask);
     }
 
     public Mono<Task> updateTask(String id, Task updatedTask, String username) {
@@ -100,11 +120,14 @@ public class TaskService {
                     if (updatedTask.getColumnId() != null) existingTask.setColumnId(updatedTask.getColumnId());
                     if (updatedTask.getTags() != null) existingTask.setTags(updatedTask.getTags());
                     if (updatedTask.getPosition() != null) existingTask.setPosition(updatedTask.getPosition());
-
                     if (newEmail != null) {
                         existingTask.setAssignedUserEmail(newEmail.isEmpty() ? null : newEmail);
                     }
 
+                    // Support task assignment / unassignment
+                    if (updatedTask.getUserId() != null) {
+                        existingTask.setUserId("none".equals(updatedTask.getUserId()) || updatedTask.getUserId().isBlank() ? null : updatedTask.getUserId());
+                    }
                     existingTask.setUpdatedBy(username);
                     existingTask.setUpdatedAt(new Date());
 
