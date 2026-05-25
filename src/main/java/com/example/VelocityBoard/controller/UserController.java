@@ -56,6 +56,16 @@ public class UserController {
         return listUsersUseCase.listAllUsers();
     }
 
+    @GetMapping("/list")
+    @Operation(summary = "Listar todos los usuarios (solo nombres y correos)", description = "Retorna la lista de todos los usuarios con solo su username y email.")
+    public Flux<UserResponse> listUsersForDropdown() {
+        return listUsersUseCase.listAllUsers()
+                .map(user -> UserResponse.builder()
+                        .username(user.getUsername())
+                        .email(user.getEmail())
+                        .build());
+    }
+
     @GetMapping("/search")
     @Operation(summary = "Buscar usuarios por nombre o email")
     public Flux<UserResponse> searchUsers(@RequestParam String query) {
