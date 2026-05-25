@@ -542,6 +542,7 @@
         }
 
         .tablero-card {
+            position: relative;
             background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 16px;
@@ -1448,10 +1449,20 @@
     function construirTarjetaTablero(tablero) {
         const card = document.createElement('div');
         card.className = 'tablero-card';
+        card.id = `tablero-card-${tablero.id}`;
         const fecha = tablero.creadoEn ? new Date(tablero.creadoEn).toLocaleDateString() : '';
+        
+        const claims = parseJwt(jwtToken);
+        const isOwner = claims.userId === tablero.propietarioId;
+        
         card.innerHTML = `
             <div class="tablero-card-icon"><i class="fas fa-columns"></i></div>
-            <div class="tablero-card-nombre">${tablero.nombre}</div>
+            ${isOwner ? `
+                <button class="icon-btn danger" style="position: absolute; top: 15px; right: 15px; width: 30px; height: 30px;" onclick="confirmarEliminarTablero(event, '${tablero.id}')" title="Eliminar Tablero">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            ` : ''}
+            <div class="tablero-card-nombre" style="margin-top: 8px;">${tablero.nombre}</div>
             <div class="tablero-card-desc">${tablero.descripcion || '<em style="opacity:0.5">Sin descripción</em>'}</div>
             ${fecha ? `<div class="tablero-card-fecha"><i class="far fa-calendar-alt"></i> ${fecha}</div>` : ''}
         `;
@@ -1528,6 +1539,49 @@
         } finally {
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-plus"></i> Crear Tablero';
+        }
+    }
+
+    function confirmarEliminarTablero(event, boardId) {
+        event.stopPropagation(); // Evitar que al hacer clic se abra el tablero
+        showConfirmModal({
+            title: 'Eliminar Tablero',
+            message: '¿Estás seguro de que deseas eliminar este tablero? Esta acción también borrará todas las tareas asociadas.',
+            confirmText: 'Sí, Eliminar',
+            type: 'danger',
+            onConfirm: () => deleteBoard(boardId)
+        });
+    }
+
+    async function deleteBoard(boardId) {
+        try {
+            const res = await fetch(`/api/boards/${boardId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${jwtToken}` }
+            });
+            if (res.ok) {
+                const cardEl = document.getElementById(`tablero-card-${boardId}`);
+                if (cardEl) {
+                    cardEl.remove();
+                    // Si ya no quedan tarjetas de tablero en el grid, mostrar vista vacía
+                    const grid = document.getElementById('tablerosGrid');
+                    if (grid && grid.children.length === 0) {
+                        grid.innerHTML = `
+                            <div class="tablero-vacio">
+                                <i class="fas fa-clipboard-list"></i>
+                                Aún no tienes tableros.<br>
+                                <span style="font-size:0.85rem;">Crea uno con el botón <strong>Nuevo Tablero</strong>.</span>
+                            </div>`;
+                    }
+                } else {
+                    cargarTableros();
+                }
+            } else {
+                const errText = await res.text();
+                alert(errText || 'No se pudo eliminar el tablero.');
+            }
+        } catch (e) {
+            alert('Error de conexión al intentar eliminar el tablero.');
         }
     }
 

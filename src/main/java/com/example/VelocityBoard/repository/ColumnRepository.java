@@ -9,4 +9,5 @@ import reactor.core.publisher.Flux;
 public interface ColumnRepository extends ReactiveMongoRepository<Column, String> {
     Flux<Column> findByUserIdOrderByPositionAsc(String userId);
     Flux<Column> findByTableroIdOrderByPositionAsc(String tableroId);
+    reactor.core.publisher.Mono<Void> deleteByTableroId(String tableroId);
 }
