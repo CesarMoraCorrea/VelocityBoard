@@ -34,6 +34,33 @@
 
         h1, h2, h3 { font-family: 'Outfit', sans-serif; }
 
+        /* BACK TO LANDING LINK */
+        .back-to-landing {
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            color: #94a3b8;
+            text-decoration: none;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+            font-size: 0.95rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+            z-index: 10;
+        }
+
+        .back-to-landing:hover {
+            color: white;
+            transform: translateX(-4px);
+        }
+        
+        .back-to-landing i {
+            font-size: 0.85rem;
+            transition: transform 0.2s ease;
+        }
+
         /* AUTH SECTION */
         #authSection {
             display: flex;
@@ -912,6 +939,9 @@
 
     <!-- AUTHENTICATION VIEW -->
     <div id="authSection">
+        <a href="/index.html" class="back-to-landing" id="backToLandingBtn">
+            <i class="fas fa-arrow-left"></i> Volver al Inicio
+        </a>
         <div class="auth-container">
             <h2>VelocityBoard</h2>
             <div id="activationMessageContainer" style="display: none; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center; font-weight: bold;"></div>
@@ -981,6 +1011,29 @@
                 <button type="submit" id="tableroSubmitBtn">
                     <i class="fas fa-plus"></i> Crear Tablero
                 </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL RENOMBRAR TABLERO -->
+    <div class="modal-overlay" id="renameBoardModal" style="display:none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-edit" style="color:var(--primary);margin-right:8px"></i> Renombrar Tablero</h3>
+                <button class="close-icon-btn" onclick="cerrarModalRenameBoard()"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="renameBoardForm" onsubmit="submitRenameBoard(event)">
+                <input type="hidden" id="renameBoardId">
+                <input type="hidden" id="renameBoardCurrentName">
+                <div class="input-group">
+                    <i class="fas fa-tag"></i>
+                    <input type="text" id="renameBoardInput" placeholder="Nuevo nombre del tablero" required autocomplete="off" maxlength="100">
+                </div>
+                <div id="renameBoardError" style="color:var(--danger);font-size:0.85rem;margin-bottom:10px;"></div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" class="btn-small" style="background:var(--bg-card); color:white; border:1px solid var(--border); width:50%;" onclick="cerrarModalRenameBoard()">Cancelar</button>
+                    <button type="submit" style="width: 50%;">Guardar</button>
+                </div>
             </form>
         </div>
     </div>
@@ -1109,8 +1162,8 @@
                 <div class="input-group">
                     <input type="text" id="taskTitle" placeholder="Título de la tarea" required autocomplete="off">
                 </div>
-                <div class="input-group">
-                    <input type="text" id="taskDesc" placeholder="Descripción breve" autocomplete="off">
+                <div class="comment-input-area" style="margin-bottom: 20px;">
+                    <textarea id="taskDesc" placeholder="Descripción breve" rows="3"></textarea>
                 </div>
                 <div class="input-group" style="margin-bottom: 20px;">
                     <select id="taskAssignedEmail" class="modal-select">
@@ -1458,9 +1511,14 @@
         card.innerHTML = `
             <div class="tablero-card-icon"><i class="fas fa-columns"></i></div>
             ${isOwner ? `
-                <button class="icon-btn danger" style="position: absolute; top: 15px; right: 15px; width: 30px; height: 30px;" onclick="confirmarEliminarTablero(event, '${tablero.id}')" title="Eliminar Tablero">
-                    <i class="fas fa-trash-alt"></i>
-                </button>
+                <div style="position: absolute; top: 15px; right: 15px; display: flex; gap: 6px;">
+                    <button class="icon-btn" style="color: var(--primary); background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; cursor: pointer; transition: all 0.2s;" onclick="renameBoard(event, '${tablero.id}', '${tablero.nombre}')" title="Renombrar Tablero">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="icon-btn danger" style="width: 30px; height: 30px;" onclick="confirmarEliminarTablero(event, '${tablero.id}')" title="Eliminar Tablero">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
             ` : ''}
             <div class="tablero-card-nombre" style="margin-top: 8px;">${tablero.nombre}</div>
             <div class="tablero-card-desc">${tablero.descripcion || '<em style="opacity:0.5">Sin descripción</em>'}</div>
@@ -1752,6 +1810,77 @@
         if(abortController) abortController.abort();
         if(tableroEventSource) { tableroEventSource.close(); tableroEventSource = null; }
         window.location.href = '/index.html';
+    }
+
+    function renameBoard(event, boardId, currentName) {
+        event.stopPropagation(); // Evitar abrir el tablero al hacer clic en renombrar
+        document.getElementById('renameBoardId').value = boardId;
+        document.getElementById('renameBoardCurrentName').value = currentName;
+        document.getElementById('renameBoardInput').value = currentName;
+        document.getElementById('renameBoardError').innerText = '';
+        document.getElementById('renameBoardModal').style.display = 'flex';
+        document.getElementById('renameBoardInput').focus();
+        document.getElementById('renameBoardInput').select();
+    }
+
+    function cerrarModalRenameBoard() {
+        document.getElementById('renameBoardModal').style.display = 'none';
+        document.getElementById('renameBoardForm').reset();
+    }
+
+    async function submitRenameBoard(e) {
+        e.preventDefault();
+        const boardId = document.getElementById('renameBoardId').value;
+        const currentName = document.getElementById('renameBoardCurrentName').value;
+        const newName = document.getElementById('renameBoardInput').value.trim();
+        
+        if (newName === "" || newName === currentName) {
+            cerrarModalRenameBoard();
+            return;
+        }
+
+        const submitBtn = document.querySelector('#renameBoardForm button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+
+        try {
+            const res = await fetch(`/api/boards/${boardId}`, {
+                method: 'PUT',
+                headers: { 
+                    'Content-Type': 'application/json', 
+                    'Authorization': `Bearer ${jwtToken}` 
+                },
+                body: JSON.stringify({ nombre: newName })
+            });
+
+            if (res.ok) {
+                const updatedBoard = await res.json();
+                cerrarModalRenameBoard();
+                
+                // Actualizar el título en el DOM dinámicamente
+                const cardEl = document.getElementById(`tablero-card-${boardId}`);
+                if (cardEl) {
+                    const titleEl = cardEl.querySelector('.tablero-card-nombre');
+                    if (titleEl) {
+                        titleEl.innerText = updatedBoard.nombre;
+                    }
+                    // Actualizar el atributo onclick para reflejar el nuevo nombre
+                    const editBtn = cardEl.querySelector('button[title="Renombrar Tablero"]');
+                    if (editBtn) {
+                        editBtn.setAttribute('onclick', `renameBoard(event, '${boardId}', '${updatedBoard.nombre.replace(/'/g, "\\'")}')`);
+                    }
+                }
+            } else {
+                const errText = await res.text();
+                document.getElementById('renameBoardError').innerText = errText || "No se pudo renombrar el tablero.";
+            }
+        } catch (e) {
+            document.getElementById('renameBoardError').innerText = "Error de conexión al renombrar el tablero.";
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        }
     }
 
     async function loadUsersForDropdown() {

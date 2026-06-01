@@ -24,6 +24,16 @@ public class BoardController {
                 .flatMap(userId -> boardService.deleteBoard(id, userId));
     }
 
+    public static class RenameBoardRequest {
+        public String nombre;
+    }
+
+    @PutMapping("/{id}")
+    public Mono<com.example.VelocityBoard.model.Tablero> renameBoard(@PathVariable String id, @RequestBody RenameBoardRequest request) {
+        return obtenerUserId()
+                .flatMap(userId -> boardService.renameBoard(id, request.nombre, userId));
+    }
+
     private Mono<String> obtenerUserId() {
         return ReactiveSecurityContextHolder.getContext()
                 .map(SecurityContext::getAuthentication)

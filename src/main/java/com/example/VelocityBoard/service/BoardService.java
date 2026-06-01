@@ -31,4 +31,15 @@ public class BoardService {
                         commentRepository.deleteByTableroId(boardId)
                 ));
     }
+
+    public Mono<com.example.VelocityBoard.model.Tablero> renameBoard(String boardId, String newName, String userId) {
+        return tableroRepository.findById(boardId)
+                .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Tablero no encontrado")))
+                .filter(tablero -> tablero.getPropietarioId().equals(userId))
+                .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo el propietario puede renombrar este tablero")))
+                .flatMap(tablero -> {
+                    tablero.setNombre(newName);
+                    return tableroRepository.save(tablero);
+                });
+    }
 }
