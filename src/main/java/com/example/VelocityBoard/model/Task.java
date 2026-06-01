@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
+import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 
@@ -28,6 +29,7 @@ public class Task {
     private Date updatedAt;
     private String updatedBy;
     private String assignedUserEmail;
+    private Instant completedAt;
 
     public String getAssignedUserEmail() {
         return this.assignedUserEmail;

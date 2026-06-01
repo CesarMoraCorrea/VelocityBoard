@@ -5,6 +5,7 @@ import org.springframework.data.mongodb.repository.ReactiveMongoRepository;
 import org.springframework.stereotype.Repository;
 
 import reactor.core.publisher.Flux;
+import java.time.Instant;
 import java.util.Collection;
 
 @Repository
@@ -12,6 +13,7 @@ public interface TaskRepository extends ReactiveMongoRepository<Task, String> {
     Flux<Task> findByUserId(String userId);
     Flux<Task> findByColumnIdOrderByPositionAsc(String columnId);
     Flux<Task> findByColumnIdInAndDeletedTrue(Collection<String> columnIds);
+    Flux<Task> findByColumnIdInAndIsArchivedFalseAndDeletedFalse(Collection<String> columnIds);
     reactor.core.publisher.Mono<Void> deleteByUserId(String userId);
     reactor.core.publisher.Mono<Void> deleteByTableroId(String tableroId);
 }
