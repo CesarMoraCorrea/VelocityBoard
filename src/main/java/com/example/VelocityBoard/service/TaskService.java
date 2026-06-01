@@ -2,6 +2,7 @@ package com.example.VelocityBoard.service;
 
 import com.example.VelocityBoard.model.Task;
 import com.example.VelocityBoard.model.TaskActivity;
+import com.example.VelocityBoard.repository.ColumnRepository;
 import com.example.VelocityBoard.repository.TaskActivityRepository;
 import com.example.VelocityBoard.repository.TaskRepository;
 import com.example.VelocityBoard.repository.UserRepository;
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Date;
 
@@ -20,12 +22,14 @@ public class TaskService {
     private final Sinks.Many<Task> sink;
     private final EmailService emailService;
     private final UserRepository userRepository;
+    private final ColumnRepository columnRepository;
 
-    public TaskService(TaskRepository taskRepository, TaskActivityRepository taskActivityRepository, EmailService emailService, UserRepository userRepository) {
+    public TaskService(TaskRepository taskRepository, TaskActivityRepository taskActivityRepository, EmailService emailService, UserRepository userRepository, ColumnRepository columnRepository) {
         this.taskRepository = taskRepository;
         this.taskActivityRepository = taskActivityRepository;
         this.emailService = emailService;
         this.userRepository = userRepository;
+        this.columnRepository = columnRepository;
         // Use a multicasting sink to broadcast events to all subscribers
         this.sink = Sinks.many().multicast().onBackpressureBuffer();
     }
@@ -117,7 +121,28 @@ public class TaskService {
 
                     if (updatedTask.getTitle() != null) existingTask.setTitle(updatedTask.getTitle());
                     if (updatedTask.getDescription() != null) existingTask.setDescription(updatedTask.getDescription());
-                    if (updatedTask.getColumnId() != null) existingTask.setColumnId(updatedTask.getColumnId());
+ 
+                    String oldColumnId = existingTask.getColumnId();
+                    String newColumnId = updatedTask.getColumnId();
+                    Mono<Void> updateColumnAndStatusMono = Mono.empty();
+ 
+                    if (newColumnId != null && !newColumnId.equals(oldColumnId)) {
+                        updateColumnAndStatusMono = columnRepository.findById(newColumnId)
+                                .doOnNext(column -> {
+                                    existingTask.setColumnId(newColumnId);
+                                    String columnName = column.getName();
+                                    if (columnName != null && (columnName.equalsIgnoreCase("Completadas") || columnName.equalsIgnoreCase("DONE"))) {
+                                        existingTask.setCompletedAt(Instant.now());
+                                    } else {
+                                        existingTask.setCompletedAt(null);
+                                    }
+                                })
+                                .switchIfEmpty(Mono.fromRunnable(() -> {
+                                    existingTask.setColumnId(newColumnId);
+                                }))
+                                .then();
+                    }
+ 
                     if (updatedTask.getTags() != null) existingTask.setTags(updatedTask.getTags());
                     if (updatedTask.getPosition() != null) existingTask.setPosition(updatedTask.getPosition());
                     if (newEmail != null) {
@@ -137,7 +162,7 @@ public class TaskService {
 
                     System.out.println("[VelocityBoard DEBUG] updateTask saving. Is new assignment: " + isNewAssignment);
 
-                    return taskRepository.save(existingTask)
+                    return updateColumnAndStatusMono.then(taskRepository.save(existingTask))
                             .flatMap(savedTask -> {
                                 TaskActivity activity = TaskActivity.builder()
                                         .taskId(savedTask.getId()).username(username)
@@ -275,5 +300,41 @@ public class TaskService {
                     return taskActivityRepository.save(activity).thenReturn(task);
                 })
                 .doOnSuccess(savedTask -> sink.tryEmitNext(savedTask));
+    }
+
+    private boolean isCompletedColumn(String name) {
+        if (name == null) return false;
+        String normalized = name.toLowerCase().trim();
+        return normalized.equals("completadas") || 
+               normalized.equals("completada") ||
+               normalized.equals("done") || 
+               normalized.equals("terminado") || 
+               normalized.equals("terminada") || 
+               normalized.equals("terminadas");
+    }
+
+    public Flux<Task> autoArchiveOldTasks() {
+        Instant threshold = Instant.now().minus(3, java.time.temporal.ChronoUnit.DAYS);
+        return columnRepository.findAll()
+                .filter(col -> col.getName() != null && isCompletedColumn(col.getName()))
+                .map(com.example.VelocityBoard.model.Column::getId)
+                .collectList()
+                .flatMapMany(doneColumnIds -> {
+                    if (doneColumnIds.isEmpty()) {
+                        return Flux.empty();
+                    }
+                    return taskRepository.findByColumnIdInAndIsArchivedFalseAndDeletedFalse(doneColumnIds);
+                })
+                .filter(task -> {
+                    Instant completedTime = task.getCompletedAt();
+                    if (completedTime == null) {
+                        Date refDate = task.getUpdatedAt() != null ? task.getUpdatedAt() : task.getCreatedAt();
+                        if (refDate != null) {
+                            completedTime = refDate.toInstant();
+                        }
+                    }
+                    return completedTime != null && completedTime.isBefore(threshold);
+                })
+                .flatMap(task -> archiveTask(task.getId(), "System"));
     }
 }

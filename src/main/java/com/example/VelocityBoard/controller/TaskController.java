@@ -199,4 +199,9 @@ public class TaskController {
                 .flatMap(info -> checkTaskAccess(id, info[0])
                         .then(taskService.duplicateTask(id, targetColumnId, info[1])));
     }
+
+    @GetMapping("/auto-archive")
+    public Flux<Task> triggerAutoArchive() {
+        return taskService.autoArchiveOldTasks();
+    }
 }
