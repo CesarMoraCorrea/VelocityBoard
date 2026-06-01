@@ -117,7 +117,7 @@
         </div>
         <div id="message" class="message">Verificando tu cuenta...</div>
         <div id="actionContainer" style="display: none;">
-            <button id="actionBtn" onclick="window.location.href='/index.html'">Ir al Login</button>
+            <button id="actionBtn" onclick="window.location.href='/app.html'">Ir al Login</button>
         </div>
     </div>
 
@@ -159,7 +159,7 @@
                 actionContainer.style.display = 'block';
                 actionBtn.textContent = 'Ir al Login';
                 actionBtn.className = '';
-                actionBtn.onclick = () => window.location.href = '/index.html';
+                actionBtn.onclick = () => window.location.href = '/app.html';
             }
 
             function showWarning(msg) {
@@ -171,7 +171,7 @@
                 actionBtn.className = 'btn-secondary';
                 actionBtn.onclick = () => {
                     alert("Funcionalidad para reenviar correo en desarrollo.");
-                    window.location.href = '/index.html';
+                    window.location.href = '/app.html';
                 };
             }
 
@@ -182,7 +182,7 @@
                 actionContainer.style.display = 'block';
                 actionBtn.textContent = 'Volver al Inicio';
                 actionBtn.className = 'btn-secondary';
-                actionBtn.onclick = () => window.location.href = '/index.html';
+                actionBtn.onclick = () => window.location.href = '/app.html';
             }
         });
     </script>
